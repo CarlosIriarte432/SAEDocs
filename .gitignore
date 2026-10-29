@@ -1,0 +1,36 @@
+# Dependencias de Node.js
+node_modules/
+
+# Variables de entorno y secretos (¡CRÍTICO PARA NEON Y CLOUDINARY!)
+.env
+.env.*
+!.env.example
+
+# Logs de depuración
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Archivos del sistema operativo (Windows/Mac)
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Configuraciones de editores de código (VS Code, etc.)
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Carpetas temporales o de caché (por si el proyecto crece)
+.npm/
+temp/
+coverage/

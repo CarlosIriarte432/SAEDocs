@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SAEDocs - Control de Flota</title>
+
+  <link rel="icon" type="image/png" href="./img/favicon.png">
+  
+  <!-- Tipografías de SAE -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Librerías para empaquetar ZIP en el frontend -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <!-- Tailwind CSS (CDN para MVP) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            title: ['"Barlow Condensed"', 'sans-serif'],
+            body: ['"Plus Jakarta Sans"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-50 font-body text-slate-800 min-h-screen relative">
+
+  <main class="max-w-4xl mx-auto pt-16 px-6 pb-20">
+    <!-- Encabezado y Buscador -->
+    <div class="text-center mb-12">
+<img src="./img/saedocslogo.png" alt="SAEDocs Logo" class="h-40 mx-auto mb-4 object-contain">      <p class="text-slate-500 mb-8">Portal consolidado de documentación de flota</p>
+      
+      <form id="searchForm" class="max-w-md mx-auto relative">
+        <input 
+          type="text" 
+          id="plateInput" 
+          placeholder="Ingrese patente (Ej: CJBB63)" 
+          class="w-full px-6 py-4 rounded-xl border border-slate-200 shadow-sm text-lg uppercase focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all uppercase"
+          required
+          autocomplete="off"
+        >
+        <button type="submit" class="absolute right-2 top-2 bottom-2 bg-blue-600 text-white px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
+          Buscar
+        </button>
+      </form>
+      <div id="errorMsg" class="hidden text-red-500 mt-3 font-medium"></div>
+    </div>
+
+<!-- Contenedor del Dashboard del Camión -->
+    <div id="vehicleDashboard" class="hidden opacity-0 transition-opacity duration-500">
+      
+<!-- Info del Vehículo y Botones de Acción -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 id="vehPlate" class="text-3xl font-title text-slate-900 mb-1">--</h2>
+          <p id="vehDetails" class="text-slate-500 font-medium">--</p>
+        </div>
+        <div class="flex gap-3 w-full sm:w-auto">
+          <button id="openUploadBtn" class="bg-blue-50 text-blue-700 border border-blue-200 px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors shadow-sm w-full sm:w-auto">
+            + Nuevo Documento
+          </button>
+          
+          <!-- ESTE ES EL BOTÓN QUE DEBE TENER EL ID: downloadFolderBtn -->
+          <button id="downloadFolderBtn" class="bg-slate-900 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-slate-800 transition-colors shadow-sm flex items-center justify-center gap-2 w-full sm:w-auto">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            Descargar Carpeta
+          </button>
+        </div>
+      </div>
+
+      <!-- Toggle de Historial -->
+      <div class="flex items-center justify-end mb-4 pr-2">
+        <label class="relative inline-flex items-center cursor-pointer group">
+          <input type="checkbox" id="historyToggle" class="sr-only peer">
+          <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-900 shadow-inner"></div>
+          <span class="ml-3 text-sm font-bold text-slate-600 group-hover:text-slate-900 transition-colors">Mostrar historial antiguo</span>
+        </label>
+      </div>
+
+      <!-- Grid de Columnas Estrictas -->
+      <div id="documentsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Inyectado por JS -->
+      </div>
+    </div>
+  </main>
+
+  <!-- Sello de Agencia -->
+<!-- Sello de Agencia Flotante -->
+  <div class="fixed bottom-6 right-6 z-40">
+    <p class="text-xs font-medium text-slate-400 bg-white/80 backdrop-blur-md px-4 py-2 rounded-xl shadow-sm border border-slate-100 transition-all hover:bg-white hover:shadow-md cursor-default">
+      Desarrollado por <span class="font-title uppercase tracking-wider text-slate-700 font-bold text-sm ml-1">Zero Ping SpA</span>
+    </p>
+  </div>
+
+  <!-- Modal de Subida (Oculto por defecto) -->
+  <div id="uploadModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-opacity">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+      <div class="flex justify-between items-center mb-5">
+        <h3 class="text-2xl font-title text-slate-900 font-bold">Subir Documento</h3>
+        <button id="closeModalBtn" class="text-slate-400 hover:text-slate-800 text-3xl leading-none">&times;</button>
+      </div>
+      
+      <form id="uploadForm" class="flex flex-col gap-4">
+        <!-- El ID del vehículo se inyectará dinámicamente desde JS -->
+        <input type="hidden" id="modalVehicleId">
+
+        <div>
+          <label class="block text-sm font-semibold mb-1 text-slate-700">Tipo de Documento</label>
+          <select id="docTypeSelect" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none" required>
+            <option value="1">SOAP</option>
+            <option value="2">Revisión Técnica</option>
+            <option value="3">Permiso de Circulación</option>
+            <option value="4">Padrón</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold mb-1 text-slate-700">Fecha de Vencimiento</label>
+          <input type="date" id="expirationDate" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none">
+          <span class="text-xs text-slate-500 mt-1 block">Dejar vacío si el documento no tiene caducidad.</span>
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold mb-1 text-slate-700">Archivo (PDF o Imagen)</label>
+          <input type="file" id="fileInput" accept=".pdf,image/*" class="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors cursor-pointer" required>
+        </div>
+
+        <button type="submit" id="uploadSubmitBtn" class="bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 mt-4 transition-colors flex justify-center items-center gap-2">
+          Confirmar y Subir
+        </button>
+        <div id="uploadFeedback" class="text-sm font-medium text-center hidden mt-2"></div>
+      </form>
+    </div>
+  </div>
+
+  <script src="./js/main.js"></script>
+</body>
+</html>
