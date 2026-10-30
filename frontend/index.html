@@ -16,6 +16,14 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
   <!-- Tailwind CSS (CDN para MVP) -->
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Guardián de Autenticación -->
+  <script>
+    if (!localStorage.getItem('saedocs_token')) {
+      window.location.href = 'login.html';
+    }
+  </script>
+
   <script>
     tailwind.config = {
       theme: {
@@ -29,69 +37,162 @@
     }
   </script>
 </head>
-<body class="bg-slate-50 font-body text-slate-800 min-h-screen relative">
 
-  <main class="max-w-4xl mx-auto pt-16 px-6 pb-20">
-    <!-- Encabezado y Buscador -->
-    <div class="text-center mb-12">
-<img src="./img/saedocslogo.png" alt="SAEDocs Logo" class="h-40 mx-auto mb-4 object-contain">      <p class="text-slate-500 mb-8">Portal consolidado de documentación de flota</p>
+<body class="bg-slate-50 font-body text-slate-800 h-screen flex flex-col overflow-hidden">
+
+  <!-- Barra de Navegación Superior -->
+  <header class="w-full bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center shadow-sm flex-shrink-0 z-10">
+<!-- Logo y Botón Toggle -->
+    <div class="flex items-center gap-3">
+      <button id="sidebarToggle" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors focus:outline-none">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+      </button>
+      <img src="./img/saedocslogo.png" alt="SAEDocs" class="h-8 object-contain">
+    </div>
+    
+    <!-- Controles derechos -->
+    <div class="flex items-center gap-3 text-sm">
+      <!-- Botón Admin (Oculto por defecto) -->
+      <a href="admin.html" id="adminPanelBtn" class="hidden bg-slate-900 text-white px-3 py-1.5 rounded-md font-bold text-xs tracking-wide hover:bg-slate-800 transition-colors mr-2">
+        🛠️ Panel Admin
+      </a>
       
-      <form id="searchForm" class="max-w-md mx-auto relative">
-        <input 
-          type="text" 
-          id="plateInput" 
-          placeholder="Ingrese patente (Ej: CJBB63)" 
-          class="w-full px-6 py-4 rounded-xl border border-slate-200 shadow-sm text-lg uppercase focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all uppercase"
-          required
-          autocomplete="off"
-        >
-        <button type="submit" class="absolute right-2 top-2 bottom-2 bg-blue-600 text-white px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
-          Buscar
+      <span class="text-slate-500">Bienvenid@, <span id="navUserName" class="font-bold text-slate-800 tracking-wide">--</span></span>
+      <span class="text-slate-300">|</span>
+      <button onclick="cerrarSesion()" class="font-bold text-rose-600 hover:text-rose-800 transition-colors">
+        Cerrar Sesión
+      </button>
+    </div>
+  </header>
+
+  <!-- Contenedor Principal (Divide la pantalla en 2) -->
+  <div class="flex flex-1 overflow-hidden">
+    
+    <!-- Barra Lateral (Sidebar) -->
+    <aside id="sidebar" class="w-64 bg-white border-r border-slate-200 flex flex-col shadow-sm flex-shrink-0 z-0 transition-all duration-300 overflow-hidden">
+      <nav class="p-4 flex flex-col gap-2">
+        <button onclick="cambiarVista('buscador')" id="btn-buscador" title="Buscar Documentos" class="flex items-center gap-3 px-4 py-3 bg-slate-900 text-white rounded-xl font-medium text-sm transition-all shadow-sm w-full text-left">
+          <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+          <span class="sidebar-text whitespace-nowrap transition-opacity">Buscar Documentos</span>
         </button>
-      </form>
-      <div id="errorMsg" class="hidden text-red-500 mt-3 font-medium"></div>
-    </div>
+        
+        <button onclick="cambiarVista('aldia')" id="btn-aldia" title="Flota al Día" class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-xl font-medium text-sm transition-all w-full text-left">
+          <svg class="w-5 h-5 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <span class="sidebar-text whitespace-nowrap transition-opacity">Flota al Día</span>
+        </button>
 
-<!-- Contenedor del Dashboard del Camión -->
-    <div id="vehicleDashboard" class="hidden opacity-0 transition-opacity duration-500">
+        <button onclick="cambiarVista('porvencer')" id="btn-porvencer" title="Por Vencer (30d)" class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-xl font-medium text-sm transition-all w-full text-left">
+          <svg class="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <span class="sidebar-text whitespace-nowrap transition-opacity">Por Vencer (30d)</span>
+        </button>
+
+        <button onclick="cambiarVista('vencidos')" id="btn-vencidos" title="Vencidos / Faltantes" class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-xl font-medium text-sm transition-all w-full text-left">
+          <svg class="w-5 h-5 text-rose-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <span class="sidebar-text whitespace-nowrap transition-opacity">Vencidos / Faltantes</span>
+        </button>
+      </nav>
+    </aside>
+
+    <!-- Área de Contenido Dinámico (Scroll independiente) -->
+    <main class="flex-1 p-6 md:p-8 overflow-y-auto bg-slate-50">
       
-<!-- Info del Vehículo y Botones de Acción -->
-      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h2 id="vehPlate" class="text-3xl font-title text-slate-900 mb-1">--</h2>
-          <p id="vehDetails" class="text-slate-500 font-medium">--</p>
-        </div>
-        <div class="flex gap-3 w-full sm:w-auto">
-          <button id="openUploadBtn" class="bg-blue-50 text-blue-700 border border-blue-200 px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors shadow-sm w-full sm:w-auto">
-            + Nuevo Documento
-          </button>
+      <!-- ========================================== -->
+      <!-- VISTA 1: Buscador (Activa por defecto)     -->
+      <!-- ========================================== -->
+      <section id="vista-buscador" class="max-w-4xl mx-auto block transition-opacity duration-300">
+        
+        <!-- Encabezado y Buscador -->
+        <div class="text-center mb-12 mt-4">
+          <img src="./img/saedocslogo.png" alt="SAEDocs Logo" class="h-32 mx-auto mb-4 object-contain">
+          <p class="text-slate-500 mb-8">Portal consolidado de documentación de flota</p>
           
-          <!-- ESTE ES EL BOTÓN QUE DEBE TENER EL ID: downloadFolderBtn -->
-          <button id="downloadFolderBtn" class="bg-slate-900 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-slate-800 transition-colors shadow-sm flex items-center justify-center gap-2 w-full sm:w-auto">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-            Descargar Carpeta
-          </button>
+          <form id="searchForm" class="max-w-md mx-auto relative">
+            <input 
+              type="text" 
+              id="plateInput" 
+              placeholder="Ingrese patente (Ej: CJBB63)" 
+              class="w-full px-6 py-4 rounded-xl border border-slate-200 shadow-sm text-lg uppercase focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all"
+              required
+              autocomplete="off"
+            >
+            <button type="submit" class="absolute right-2 top-2 bottom-2 bg-blue-600 text-white px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
+              Buscar
+            </button>
+          </form>
+          <div id="errorMsg" class="hidden text-red-500 mt-3 font-medium"></div>
         </div>
-      </div>
 
-      <!-- Toggle de Historial -->
-      <div class="flex items-center justify-end mb-4 pr-2">
-        <label class="relative inline-flex items-center cursor-pointer group">
-          <input type="checkbox" id="historyToggle" class="sr-only peer">
-          <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-900 shadow-inner"></div>
-          <span class="ml-3 text-sm font-bold text-slate-600 group-hover:text-slate-900 transition-colors">Mostrar historial antiguo</span>
-        </label>
-      </div>
+        <!-- Contenedor del Dashboard del Camión -->
+        <div id="vehicleDashboard" class="hidden opacity-0 transition-opacity duration-500 pb-20">
+          
+          <!-- Info del Vehículo y Botones de Acción -->
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h2 id="vehPlate" class="text-3xl font-title text-slate-900 mb-1">--</h2>
+              <p id="vehDetails" class="text-slate-500 font-medium">--</p>
+            </div>
+            <div class="flex gap-3 w-full sm:w-auto">
+              <button id="openUploadBtn" class="bg-blue-50 text-blue-700 border border-blue-200 px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors shadow-sm w-full sm:w-auto">
+                + Nuevo Documento
+              </button>
+              
+              <button id="downloadFolderBtn" class="bg-slate-900 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-slate-800 transition-colors shadow-sm flex items-center justify-center gap-2 w-full sm:w-auto">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                Descargar Carpeta
+              </button>
+            </div>
+          </div>
 
-      <!-- Grid de Columnas Estrictas -->
-      <div id="documentsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <!-- Inyectado por JS -->
-      </div>
-    </div>
-  </main>
+          <!-- Toggle de Historial -->
+          <div class="flex items-center justify-end mb-4 pr-2">
+            <label class="relative inline-flex items-center cursor-pointer group">
+              <input type="checkbox" id="historyToggle" class="sr-only peer">
+              <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-900 shadow-inner"></div>
+              <span class="ml-3 text-sm font-bold text-slate-600 group-hover:text-slate-900 transition-colors">Mostrar historial antiguo</span>
+            </label>
+          </div>
 
-  <!-- Sello de Agencia -->
-<!-- Sello de Agencia Flotante -->
+          <!-- Grid de Columnas Estrictas -->
+          <div id="documentsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Inyectado por JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- VISTA 2: Flota al Día                      -->
+      <!-- ========================================== -->
+      <section id="vista-aldia" class="max-w-6xl mx-auto hidden transition-opacity duration-300">
+        <h2 class="text-2xl font-bold text-slate-900 mb-6">Vehículos con Documentación al Día</h2>
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center text-slate-500">
+          En desarrollo...
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- VISTA 3: Por Vencer                        -->
+      <!-- ========================================== -->
+      <section id="vista-porvencer" class="max-w-6xl mx-auto hidden transition-opacity duration-300">
+        <h2 class="text-2xl font-bold text-slate-900 mb-6">Documentos Próximos a Vencer (30 días)</h2>
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center text-slate-500">
+          En desarrollo...
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- VISTA 4: Vencidos                          -->
+      <!-- ========================================== -->
+      <section id="vista-vencidos" class="max-w-6xl mx-auto hidden transition-opacity duration-300">
+        <h2 class="text-2xl font-bold text-rose-600 mb-6">Atención: Documentos Vencidos o Faltantes</h2>
+        <div class="bg-white border-2 border-rose-100 rounded-2xl shadow-sm p-8 text-center text-slate-500">
+          En desarrollo...
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Sello de Agencia Flotante -->
   <div class="fixed bottom-6 right-6 z-40">
     <p class="text-xs font-medium text-slate-400 bg-white/80 backdrop-blur-md px-4 py-2 rounded-xl shadow-sm border border-slate-100 transition-all hover:bg-white hover:shadow-md cursor-default">
       Desarrollado por <span class="font-title uppercase tracking-wider text-slate-700 font-bold text-sm ml-1">Zero Ping SpA</span>

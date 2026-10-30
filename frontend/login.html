@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - SAEDocs</title>
+  <link rel="icon" type="image/png" href="./img/favicon.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Mantén tus configuraciones de Tailwind Font (Inter/Outfit) aquí igual que en index.html -->
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col font-sans text-slate-800 selection:bg-blue-200">
+
+  <main class="flex-grow flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white rounded-3xl shadow-xl border border-slate-100 p-8 relative overflow-hidden">
+      
+      <!-- Efecto visual de fondo (Blur) -->
+      <div class="absolute -top-10 -right-10 w-32 h-32 bg-blue-100 rounded-full blur-3xl opacity-50 pointer-events-none"></div>
+
+      <!-- Header del Login -->
+      <div class="text-center mb-8 relative z-10">
+        <img src="./img/saedocslogo.png" alt="SAEDocs Logo" class="h-14 mx-auto mb-4 object-contain">
+        <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Acceso Operativo</h1>
+        <p class="text-sm text-slate-500 mt-1">Ingresa tus credenciales para continuar</p>
+      </div>
+
+      <!-- Formulario -->
+      <form id="loginForm" class="space-y-5 relative z-10">
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Correo Electrónico</label>
+          <input type="email" id="email" required placeholder="operador@sae.cl" 
+            class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none transition-all text-sm">
+        </div>
+        
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Contraseña</label>
+          <input type="password" id="password" required placeholder="••••••••" 
+            class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none transition-all text-sm">
+        </div>
+
+        <p id="errorMsg" class="hidden text-sm text-rose-600 font-medium text-center bg-rose-50 py-2 rounded-lg"></p>
+
+        <button type="submit" id="submitBtn" 
+          class="w-full bg-slate-900 text-white font-bold py-3.5 rounded-xl hover:bg-slate-800 transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg mt-2">
+          <span>Iniciar Sesión</span>
+          <svg id="btnIcon" class="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+        </button>
+      </form>
+    </div>
+  </main>
+
+  <!-- Sello de Agencia -->
+  <footer class="text-center pb-6">
+    <p class="text-xs font-medium text-slate-400">
+      Desarrollado por <span class="font-bold text-slate-700 uppercase tracking-wider">Zero Ping SpA</span>
+    </p>
+  </footer>
+
+  <!-- Lógica de Autenticación -->
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const btn = document.getElementById('submitBtn');
+      const errorMsg = document.getElementById('errorMsg');
+      const btnIcon = document.getElementById('btnIcon');
+
+      // Animación: Estado de carga
+      btn.disabled = true;
+      btn.classList.replace('bg-slate-900', 'bg-slate-600');
+      btn.querySelector('span').textContent = 'Autenticando...';
+      btnIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />`;
+      btnIcon.classList.add('animate-spin');
+      errorMsg.classList.add('hidden');
+
+      try {
+        const response = await fetch('http://127.0.0.1:3000/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) throw new Error(data.error);
+
+        // Guardar Token y Datos de Usuario
+        localStorage.setItem('saedocs_token', data.token);
+        localStorage.setItem('saedocs_user', JSON.stringify(data.user));
+
+        // Redirección exitosa
+        btn.classList.replace('bg-slate-600', 'bg-emerald-600');
+        btn.querySelector('span').textContent = '¡Acceso Concedido!';
+        btnIcon.classList.remove('animate-spin');
+        btnIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />`;
+        
+        setTimeout(() => { window.location.href = 'index.html'; }, 800);
+
+      } catch (error) {
+        // Restaurar botón y mostrar error
+        btn.disabled = false;
+        btn.classList.replace('bg-slate-600', 'bg-slate-900');
+        btn.querySelector('span').textContent = 'Iniciar Sesión';
+        btnIcon.classList.remove('animate-spin');
+        btnIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>`;
+        
+        errorMsg.textContent = error.message;
+        errorMsg.classList.remove('hidden');
+      }
+    });
+  </script>
+</body>
+</html>

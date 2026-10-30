@@ -3,6 +3,25 @@ let currentVehicleDocs = [];
 let currentVehicleId = null;
 let showHistory = false;
 
+
+document.addEventListener('DOMContentLoaded', () => {
+  const storedUser = localStorage.getItem('saedocs_user');
+  
+  if (storedUser) {
+    const user = JSON.parse(storedUser);
+    document.getElementById('navUserName').textContent = user.name;
+    
+    if (user.role === 'admin' && document.getElementById('adminPanelBtn')) {
+      document.getElementById('adminPanelBtn').classList.remove('hidden');
+    }
+  }
+
+  // Ejecutamos el analizador de flota al cargar la página (solo si estamos en el dashboard)
+  if (document.getElementById('vista-aldia')) {
+    loadDashboardStats();
+  }
+});
+
 // Orden estricto de las 4 columnas
 const DOC_TYPES = ['SOAP', 'Revisión Técnica', 'Permiso de Circulación', 'Padrón'];
 
@@ -118,7 +137,7 @@ function createDocCard(doc, typeName, isLatest) {
     
     expText = expDate.toLocaleDateString('es-CL');
 
-    if (diffDays < 0) {
+    if (diffDays <= 0) {
       statusConfig = { color: 'bg-rose-50 border-rose-200 text-rose-700', badge: 'bg-rose-100 text-rose-800', text: 'Vencido' };
     } else if (diffDays <= 30) {
       statusConfig = { color: 'bg-amber-50 border-amber-200 text-amber-800', badge: 'bg-amber-100 text-amber-900', text: `Vence en ${diffDays} días` };
@@ -227,6 +246,8 @@ uploadForm.addEventListener('submit', async (e) => {
       document.getElementById('searchForm').dispatchEvent(new Event('submit'));
     }, 1000);
 
+    loadDashboardStats();
+
   } catch (error) {
     uploadFeedback.textContent = error.message;
     uploadFeedback.className = 'text-sm font-bold text-red-600 text-center mt-3 block';
@@ -302,4 +323,180 @@ if (downloadFolderBtn) {
       btn.classList.remove('opacity-75');
     }
   });
+}
+
+// --- Inicialización de Sesión ---
+document.addEventListener('DOMContentLoaded', () => {
+  const storedUser = localStorage.getItem('saedocs_user');
+  
+  if (storedUser) {
+    const user = JSON.parse(storedUser);
+    document.getElementById('navUserName').textContent = user.name;
+    
+    // Si el usuario es admin, mostramos el botón del panel
+    if (user.role === 'admin') {
+      document.getElementById('adminPanelBtn').classList.remove('hidden');
+    }
+  }
+});
+
+// --- Lógica de Navegación del Sidebar ---
+function cambiarVista(vistaDestino) {
+  const vistas = ['buscador', 'aldia', 'porvencer', 'vencidos'];
+  
+  // 1. Mostrar/Ocultar secciones
+  vistas.forEach(v => {
+    document.getElementById(`vista-${v}`).classList.add('hidden');
+    document.getElementById(`vista-${v}`).classList.remove('block');
+  });
+  document.getElementById(`vista-${vistaDestino}`).classList.remove('hidden');
+  document.getElementById(`vista-${vistaDestino}`).classList.add('block');
+
+  // 2. Reiniciar colores (remueve activo, añade inactivo)
+  vistas.forEach(v => {
+    const btn = document.getElementById(`btn-${v}`);
+    btn.classList.remove('bg-slate-900', 'text-white', 'shadow-sm');
+    btn.classList.add('text-slate-600', 'hover:bg-slate-50');
+  });
+
+  // 3. Pintar botón activo
+  const btnActivo = document.getElementById(`btn-${vistaDestino}`);
+  btnActivo.classList.remove('text-slate-600', 'hover:bg-slate-50');
+  btnActivo.classList.add('bg-slate-900', 'text-white', 'shadow-sm');
+}
+
+// --- Lógica del Botón Colapsar Sidebar ---
+document.addEventListener('DOMContentLoaded', () => {
+  const sidebarToggle = document.getElementById('sidebarToggle');
+  const sidebar = document.getElementById('sidebar');
+  const sidebarTexts = document.querySelectorAll('.sidebar-text');
+
+  if(sidebarToggle) {
+    sidebarToggle.addEventListener('click', () => {
+      // Intercambia el ancho entre 64 (256px) y 20 (80px)
+      sidebar.classList.toggle('w-64');
+      sidebar.classList.toggle('w-20');
+      
+      // Oculta/Muestra el texto
+      sidebarTexts.forEach(text => {
+        text.classList.toggle('hidden');
+      });
+    });
+  }
+});
+
+// ==========================================
+// LÓGICA DE ESTADÍSTICAS DEL DASHBOARD
+// ==========================================
+async function loadDashboardStats() {
+  try {
+    const token = localStorage.getItem('saedocs_token');
+    const response = await fetch('http://127.0.0.1:3000/api/vehicles/dashboard-stats', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      renderDashboardTable('vista-aldia', result.data.alDia, 'emerald');
+      renderDashboardTable('vista-porvencer', result.data.porVencer, 'amber');
+      renderDashboardTable('vista-vencidos', result.data.vencidos, 'rose');
+    }
+  } catch (error) {
+    console.error("Error cargando estadísticas:", error);
+  }
+}
+
+function renderDashboardTable(containerId, vehicles, colorBorder) {
+  const container = document.querySelector(`#${containerId} div`);
+  if (!container) return;
+
+  if (vehicles.length === 0) {
+    container.innerHTML = `<p class="py-6 text-slate-500 text-center font-medium">No hay vehículos en esta categoría.</p>`;
+    return;
+  }
+
+ // Detectamos si es tabla de alerta y definimos el título exacto
+  const isAlertTable = containerId === 'vista-vencidos' || containerId === 'vista-porvencer';
+  const alertColorText = containerId === 'vista-vencidos' ? 'text-rose-600' : 'text-amber-600';
+  const alertTitle = containerId === 'vista-vencidos' ? 'Doc. Vencido' : 'Doc. por Vencer';
+
+  let html = `
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse">
+        <thead>
+          <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
+            <th class="px-6 py-4 font-semibold">Patente</th>
+            <th class="px-6 py-4 font-semibold">Tipo</th>
+            <th class="px-6 py-4 font-semibold ${isAlertTable ? alertColorText : ''}">
+              ${isAlertTable ? alertTitle : 'N° Interno'}
+            </th>
+            <th class="px-6 py-4 font-semibold text-right">Acción</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+  `;
+
+  vehicles.forEach(v => {
+    let columnContent = v.internal_number || '-';
+    
+    if (isAlertTable) {
+      if (containerId === 'vista-vencidos') {
+        let parts = [];
+        
+        if (v.alerts.expired.length > 0) {
+          parts.push(`<div><span class="font-bold">Vencidos:</span> <span class="text-slate-800 font-medium">${v.alerts.expired.join(' - ')}</span></div>`);
+        }
+        if (v.alerts.missing.length > 0) {
+          parts.push(`<div><span class="font-bold">Faltan:</span> <span class="text-slate-800 font-medium">${v.alerts.missing.join(' - ')}</span></div>`);
+        }
+        
+        // Unimos los bloques con una línea divisoria continua
+        columnContent = parts.join('<div class="border-t border-rose-300 my-2 w-full"></div>');
+        
+      } else if (containerId === 'vista-porvencer') {
+        columnContent = `<div><span class="font-bold">Por vencer:</span> <span class="text-slate-800 font-medium">${v.alerts.expiring.join(' - ')}</span></div>`;
+      }
+    }
+
+    html += `
+      <tr class="hover:bg-slate-50 transition-colors">
+        <td class="px-6 py-4 font-bold text-slate-800 align-middle">${v.plate}</td>
+        <td class="px-6 py-4 text-sm text-slate-600 align-middle">${v.type}</td>
+        <td class="px-6 py-4 text-sm ${isAlertTable ? alertColorText : 'text-slate-600'} align-middle">
+          ${columnContent}
+        </td>
+        <td class="px-6 py-4 text-right align-middle">
+          <button onclick="buscarDesdeTabla('${v.plate}')" class="text-blue-600 hover:text-blue-800 font-semibold text-sm px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors">
+            Auditar Documentos &rarr;
+          </button>
+        </td>
+      </tr>
+    `;
+  });
+
+  html += `</tbody></table></div>`;
+  
+  container.className = `bg-white rounded-2xl shadow-sm border-2 border-${colorBorder}-200 overflow-hidden`;
+  container.innerHTML = html;
+}
+
+// Interconecta la tabla con el buscador principal
+function buscarDesdeTabla(plate) {
+  cambiarVista('buscador');
+  document.getElementById('plateInput').value = plate;
+  
+  // Simulamos un submit en el formulario de búsqueda
+  const event = new Event('submit', { cancelable: true, bubbles: true });
+  document.getElementById('searchForm').dispatchEvent(event);
+}
+
+// --- Lógica de Sesión ---
+function cerrarSesion() {
+  localStorage.removeItem('saedocs_token');
+  localStorage.removeItem('saedocs_user');
+  window.location.href = 'login.html';
 }
