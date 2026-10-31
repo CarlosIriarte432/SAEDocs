@@ -54,19 +54,42 @@
           <input type="text" id="plate" required placeholder="Ej: CJBB63" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none uppercase">
         </div>
         
+        <!-- Nuevo Select: Solo Vehículo o Equipo -->
         <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Tipo</label>
+          <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Clasificación</label>
           <select id="type" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none">
-            <option value="Camión">Camión</option>
-            <option value="Semirremolque">Semirremolque</option>
-            <option value="Camioneta">Camioneta</option>
-            <option value="Maquinaria">Maquinaria</option>
+            <option value="Vehículo">Vehículo</option>
+            <option value="Equipo">Equipo</option>
+          </select>
+        </div>
+
+        <!-- Nuevo Select: Marcas de relleno -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Marca</label>
+          <select id="brandInput" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none">
+            <option value="Mercedes-Benz">Mercedes-Benz</option>
+            <option value="Volvo">Volvo</option>
+            <option value="Scania">Scania</option>
+            <option value="Freightliner">Freightliner</option>
+            <option value="Ford">Ford</option>
+            <option value="Chevrolet">Chevrolet</option>
+            <option value="Caterpillar">Caterpillar (CAT)</option>
+            <option value="JCB">JCB</option>
+            <option value="Otra">Otra</option>
           </select>
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">N° Interno (Opcional)</label>
-          <input type="text" id="internal_number" placeholder="Ej: TRK-01" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none">
+          <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Sucursal Asignada</label>
+          <select id="branchInput" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none" required>
+            <option value="Coquimbo">Casa Matriz (Coquimbo)</option>
+            <option value="Alto Hospicio">Alto Hospicio</option>
+            <option value="Calama">Calama</option>
+            <option value="La Portada">La Portada</option>
+            <option value="La Negra">La Negra</option>
+            <option value="Copiapó">Copiapó</option>
+            <option value="Lampa">Lampa</option>
+          </select>
         </div>
 
         <p id="formMsg" class="hidden text-sm text-center py-2 rounded-lg"></p>
@@ -90,7 +113,8 @@
             <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
               <th class="px-4 py-3 font-semibold">Patente</th>
               <th class="px-4 py-3 font-semibold">Tipo</th>
-              <th class="px-4 py-3 font-semibold">N° Interno</th>
+              <th class="px-4 py-3 font-semibold">Sucursal</th>
+              <th class="px-4 py-3 font-semibold">Marca</th>
               <th class="px-4 py-3 font-semibold text-right">Acciones</th>
             </tr>
           </thead>
@@ -177,7 +201,8 @@
         tr.innerHTML = `
           <td class="px-4 py-3 font-bold text-slate-800">${v.plate}</td>
           <td class="px-4 py-3 text-sm text-slate-600">${v.type}</td>
-          <td class="px-4 py-3 text-sm text-slate-600">${v.internal_number || '-'}</td>
+          <td class="px-4 py-3 text-sm text-slate-600 font-medium">${v.branch || 'Coquimbo'}</td>
+          <td class="px-4 py-3 text-sm text-slate-600">${v.brand || 'Sin Marca'}</td> 
           <td class="px-4 py-3 text-right">
             <button onclick="deleteVehicle(${v.id}, '${v.plate}')" class="text-rose-500 hover:text-rose-700 font-medium text-sm px-2 py-1 rounded hover:bg-rose-50 transition-colors">Eliminar</button>
           </td>
@@ -214,7 +239,8 @@
       const payload = {
         plate: document.getElementById('plate').value,
         type: document.getElementById('type').value,
-        internal_number: document.getElementById('internal_number').value
+        brand: document.getElementById('brandInput').value, 
+        branch: document.getElementById('branchInput').value
       };
 
       try {

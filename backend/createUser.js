@@ -7,7 +7,7 @@ async function createAdmin() {
   try {
     await db.query(
       'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4)',
-      ['Carlos (User)', 'carlos@saedocs.cl', hashedPassword, 'user']
+      ['Carlos (C)', 'darwin@saedocs.cl', hashedPassword, 'admin']
     );
     console.log('✅ Usuario admin creado con éxito. (Email: darwin@saedocs.cl | Pass: admin123)');
   } catch (error) {

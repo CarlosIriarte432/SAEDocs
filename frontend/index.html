@@ -71,6 +71,11 @@
     <!-- Barra Lateral (Sidebar) -->
     <aside id="sidebar" class="w-64 bg-white border-r border-slate-200 flex flex-col shadow-sm flex-shrink-0 z-0 transition-all duration-300 overflow-hidden">
       <nav class="p-4 flex flex-col gap-2">
+        <button onclick="cambiarVista('flota')" id="btn-flota" title="Directorio Flota" class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-xl font-medium text-sm transition-all w-full text-left">
+         <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+         <span class="sidebar-text whitespace-nowrap transition-opacity">Directorio Flota</span>
+        </button>
+        
         <button onclick="cambiarVista('buscador')" id="btn-buscador" title="Buscar Documentos" class="flex items-center gap-3 px-4 py-3 bg-slate-900 text-white rounded-xl font-medium text-sm transition-all shadow-sm w-full text-left">
           <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
           <span class="sidebar-text whitespace-nowrap transition-opacity">Buscar Documentos</span>
@@ -99,19 +104,19 @@
       <!-- ========================================== -->
       <!-- VISTA 1: Buscador (Activa por defecto)     -->
       <!-- ========================================== -->
-      <section id="vista-buscador" class="max-w-4xl mx-auto block transition-opacity duration-300">
+      <section id="vista-buscador" class="max-w-5xl mx-auto block transition-opacity duration-300">
         
         <!-- Encabezado y Buscador -->
         <div class="text-center mb-12 mt-4">
           <img src="./img/saedocslogo.png" alt="SAEDocs Logo" class="h-32 mx-auto mb-4 object-contain">
           <p class="text-slate-500 mb-8">Portal consolidado de documentación de flota</p>
           
-          <form id="searchForm" class="max-w-md mx-auto relative">
+          <form id="searchForm" class="max-w-xl mx-auto relative">
             <input 
               type="text" 
               id="plateInput" 
-              placeholder="Ingrese patente (Ej: CJBB63)" 
-              class="w-full px-6 py-4 rounded-xl border border-slate-200 shadow-sm text-lg uppercase focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all"
+              placeholder="Patentes separadas por coma (Ej: CJBB63, AABB23)" 
+              class="w-full px-6 py-4 rounded-xl border border-slate-200 shadow-sm text-lg uppercase focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all placeholder:normal-case"
               required
               autocomplete="off"
             >
@@ -119,44 +124,14 @@
               Buscar
             </button>
           </form>
-          <div id="errorMsg" class="hidden text-red-500 mt-3 font-medium"></div>
+          <div id="errorMsg" class="hidden text-rose-500 bg-rose-50 border border-rose-100 px-4 py-2 rounded-lg mt-3 text-sm"></div>
         </div>
 
-        <!-- Contenedor del Dashboard del Camión -->
-        <div id="vehicleDashboard" class="hidden opacity-0 transition-opacity duration-500 pb-20">
-          
-          <!-- Info del Vehículo y Botones de Acción -->
-          <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <h2 id="vehPlate" class="text-3xl font-title text-slate-900 mb-1">--</h2>
-              <p id="vehDetails" class="text-slate-500 font-medium">--</p>
-            </div>
-            <div class="flex gap-3 w-full sm:w-auto">
-              <button id="openUploadBtn" class="bg-blue-50 text-blue-700 border border-blue-200 px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors shadow-sm w-full sm:w-auto">
-                + Nuevo Documento
-              </button>
-              
-              <button id="downloadFolderBtn" class="bg-slate-900 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-slate-800 transition-colors shadow-sm flex items-center justify-center gap-2 w-full sm:w-auto">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                Descargar Carpeta
-              </button>
-            </div>
-          </div>
-
-          <!-- Toggle de Historial -->
-          <div class="flex items-center justify-end mb-4 pr-2">
-            <label class="relative inline-flex items-center cursor-pointer group">
-              <input type="checkbox" id="historyToggle" class="sr-only peer">
-              <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-900 shadow-inner"></div>
-              <span class="ml-3 text-sm font-bold text-slate-600 group-hover:text-slate-900 transition-colors">Mostrar historial antiguo</span>
-            </label>
-          </div>
-
-          <!-- Grid de Columnas Estrictas -->
-          <div id="documentsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <!-- Inyectado por JS -->
-          </div>
+        <!-- Contenedor Dinámico para Múltiples Dashboards -->
+        <div id="multiDashboardContainer" class="flex flex-col gap-10 pb-20">
+          <!-- Aquí el JS inyectará los camiones -->
         </div>
+
       </section>
 
       <!-- ========================================== -->
@@ -186,6 +161,51 @@
         <h2 class="text-2xl font-bold text-rose-600 mb-6">Atención: Documentos Vencidos o Faltantes</h2>
         <div class="bg-white border-2 border-rose-100 rounded-2xl shadow-sm p-8 text-center text-slate-500">
           En desarrollo...
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- VISTA 5: Directorio Flota (Árbol)          -->
+      <!-- ========================================== -->
+      <section id="vista-flota" class="max-w-6xl mx-auto hidden transition-opacity duration-300">
+        <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h2 class="text-2xl font-bold text-slate-800">Directorio de Flota</h2>
+            <p class="text-slate-500 text-sm">Vista estructurada y semáforo de estado</p>
+          </div>
+          <!-- Filtros -->
+          <div class="flex flex-wrap gap-3">
+            <select id="filterTipo" class="border border-slate-200 text-slate-600 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-slate-800 outline-none">
+              <option value="ALL">Todos los tipos</option>
+              <option value="Camión">Camión</option>
+              <option value="Tractocamión">Tractocamión</option>
+              <option value="Semirremolque">Semirremolque</option>
+              <option value="Camioneta">Camioneta</option>
+              <option value="Maquinaria">Maquinaria</option>
+            </select>
+            <select id="filterEstado" class="border border-slate-200 text-slate-600 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-slate-800 outline-none">
+              <option value="ALL">Todos los estados</option>
+              <option value="aldia">🟢 Al Día</option>
+              <option value="porvencer">🟡 Por Vencer</option>
+              <option value="vencidos">🔴 Vencido / Falta</option>
+            </select>
+            <select id="filterSucursal" class="border border-slate-200 text-slate-600 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-slate-800 outline-none">
+              <option value="ALL">Todas las sucursales</option>
+              <option value="Coquimbo">Coquimbo</option>
+              <option value="Alto Hospicio">Alto Hospicio</option>
+              <option value="Calama">Calama</option>
+              <option value="La Portada">La Portada</option>
+              <option value="La Negra">La Negra</option>
+              <option value="Copiapó">Copiapó</option>
+              <option value="Lampa">Lampa</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-2 sm:p-4">
+          <div id="flotaTree" class="space-y-4">
+            <!-- Aquí el JS inyectará el árbol -->
+          </div>
         </div>
       </section>
 
@@ -221,7 +241,7 @@
           </select>
         </div>
 
-        <div>
+        <div id="expirationDateContainer">
           <label class="block text-sm font-semibold mb-1 text-slate-700">Fecha de Vencimiento</label>
           <input type="date" id="expirationDate" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none">
           <span class="text-xs text-slate-500 mt-1 block">Dejar vacío si el documento no tiene caducidad.</span>

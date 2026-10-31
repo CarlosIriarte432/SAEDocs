@@ -1,107 +1,165 @@
-// --- Variables de Estado ---
-let currentVehicleDocs = [];
-let currentVehicleId = null;
-let showHistory = false;
+// --- Variables Globales ---
+let globalFleetData = { alDia: [], porVencer: [], vencidos: [] };
+const DOC_TYPES = ['SOAP', 'Revisión Técnica', 'Permiso de Circulación', 'Padrón'];
 
-
+// Inicialización
 document.addEventListener('DOMContentLoaded', () => {
   const storedUser = localStorage.getItem('saedocs_user');
-  
   if (storedUser) {
     const user = JSON.parse(storedUser);
     document.getElementById('navUserName').textContent = user.name;
-    
     if (user.role === 'admin' && document.getElementById('adminPanelBtn')) {
       document.getElementById('adminPanelBtn').classList.remove('hidden');
     }
   }
 
-  // Ejecutamos el analizador de flota al cargar la página (solo si estamos en el dashboard)
+  // Cargar estadísticas si estamos en el dashboard
   if (document.getElementById('vista-aldia')) {
     loadDashboardStats();
   }
 });
 
-// Orden estricto de las 4 columnas
-const DOC_TYPES = ['SOAP', 'Revisión Técnica', 'Permiso de Circulación', 'Padrón'];
-
-// --- Event Listeners principales ---
-document.getElementById('historyToggle').addEventListener('change', (e) => {
-  showHistory = e.target.checked;
-  renderDocumentsGrid(); // Re-renderizar al cambiar el switch
-});
-
+// ==========================================
+// MOTOR DE BÚSQUEDA MÚLTIPLE
+// ==========================================
 document.getElementById('searchForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const plate = document.getElementById('plateInput').value.trim().toUpperCase();
+  const rawInput = document.getElementById('plateInput').value;
   const errorMsg = document.getElementById('errorMsg');
-  const dashboard = document.getElementById('vehicleDashboard');
-
+  
   errorMsg.classList.add('hidden');
-  dashboard.classList.add('hidden');
-  dashboard.classList.remove('opacity-100');
-
-  if (!plate) return;
+  document.getElementById('multiDashboardContainer').innerHTML = ''; // Limpiamos la pantalla
+  
+  // Cortamos por comas, quitamos espacios y eliminamos vacíos
+  const plates = rawInput.split(',').map(p => p.trim().toUpperCase()).filter(p => p !== '');
+  if (plates.length === 0) return;
 
   try {
-    const response = await fetch(`http://localhost:3000/api/vehicles/${plate}`);
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'Error buscando el vehículo');
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.innerHTML = 'Buscando... ⏳';
+    btn.disabled = true;
 
-    currentVehicleDocs = result.data;
-    renderDashboardHeader();
-    renderDocumentsGrid();
+    // Disparamos peticiones en paralelo
+    const fetchPromises = plates.map(plate => 
+      fetch(`http://localhost:3000/api/vehicles/${plate}`).then(res => res.json())
+    );
+
+    const results = await Promise.allSettled(fetchPromises);
     
+    const successfulVehicles = [];
+    const failedPlates = [];
+
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled' && result.value.success) {
+        successfulVehicles.push(result.value.data);
+      } else {
+        failedPlates.push(plates[index]);
+      }
+    });
+
+    if (successfulVehicles.length === 0) {
+       throw new Error('No se encontró ninguna de las patentes ingresadas.');
+    }
+
+    if (failedPlates.length > 0) {
+       errorMsg.innerHTML = `⚠️ <b>Atención:</b> No se encontraron: <span class="font-bold text-rose-700">${failedPlates.join(', ')}</span>`;
+       errorMsg.classList.remove('hidden');
+    }
+
+    renderMultipleDashboards(successfulVehicles);
+    
+    btn.innerHTML = 'Buscar';
+    btn.disabled = false;
+
   } catch (error) {
     errorMsg.textContent = error.message;
     errorMsg.classList.remove('hidden');
+    e.target.querySelector('button[type="submit"]').innerHTML = 'Buscar';
+    e.target.querySelector('button[type="submit"]').disabled = false;
   }
 });
 
-// --- Lógica de Renderizado ---
-function renderDashboardHeader() {
-  const vehicle = currentVehicleDocs[0];
-  currentVehicleId = vehicle.id; 
-
-  document.getElementById('vehPlate').textContent = `Patente: ${vehicle.plate}`;
-  document.getElementById('vehDetails').textContent = `${vehicle.type} ${vehicle.internal_number ? `• N° ${vehicle.internal_number}` : ''}`;
+// ==========================================
+// FÁBRICA DE DASHBOARDS DINÁMICOS
+// ==========================================
+function renderMultipleDashboards(vehiclesArray) {
+  const container = document.getElementById('multiDashboardContainer');
   
-  const dashboard = document.getElementById('vehicleDashboard');
-  dashboard.classList.remove('hidden');
-  setTimeout(() => dashboard.classList.add('opacity-100'), 50);
+  // Guardamos datos globalmente por si necesitan descargar ZIP
+  if (!window.vehiculosBuscados) window.vehiculosBuscados = {};
+
+  vehiclesArray.forEach((vehicleDocs, index) => {
+    const vehicle = vehicleDocs[0];
+    window.vehiculosBuscados[vehicle.plate] = vehicleDocs;
+    
+    const dashWrapper = document.createElement('div');
+    dashWrapper.className = 'opacity-0 translate-y-4 transition-all duration-500 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden';
+    
+    // HTML del Camión
+    dashWrapper.innerHTML = `
+      <div class="bg-slate-50 border-b border-slate-200 p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 class="text-3xl font-title text-slate-900 mb-1">Patente: ${vehicle.plate}</h2>
+          <p class="text-slate-500 font-medium">${vehicle.type} • ${vehicle.brand || 'Sin Marca'} • <span class="text-slate-700">${vehicle.branch || 'Coquimbo'}</span></p>
+        </div>
+        <div class="flex gap-3 w-full sm:w-auto">
+          <button onclick="abrirModalSubida(${vehicle.id}, '${vehicle.plate}')" class="bg-blue-50 text-blue-700 border border-blue-200 px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors shadow-sm w-full sm:w-auto">
+            + Nuevo Documento
+          </button>
+          <button onclick="descargarCarpetaZIP('${vehicle.plate}', this)" class="bg-slate-900 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-slate-800 transition-colors shadow-sm flex items-center justify-center gap-2 w-full sm:w-auto">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            Descargar
+          </button>
+        </div>
+      </div>
+      
+      <div class="p-6">
+        <div class="flex items-center justify-end mb-4 pr-2">
+          <label class="relative inline-flex items-center cursor-pointer group">
+            <input type="checkbox" onchange="toggleHistorial(this, 'grid-${vehicle.plate}')" class="sr-only peer">
+            <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-900 shadow-inner"></div>
+            <span class="ml-3 text-sm font-bold text-slate-600 group-hover:text-slate-900 transition-colors">Ver historial antiguo</span>
+          </label>
+        </div>
+        <div id="grid-${vehicle.plate}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Inyectado por JS -->
+        </div>
+      </div>
+    `;
+
+    container.appendChild(dashWrapper);
+    inyectarTarjetasEnGrid(`grid-${vehicle.plate}`, vehicleDocs);
+
+    setTimeout(() => {
+      dashWrapper.classList.remove('opacity-0', 'translate-y-4');
+    }, 100 * index);
+  });
 }
 
-function renderDocumentsGrid() {
-  const docsGrid = document.getElementById('documentsGrid');
-  docsGrid.innerHTML = ''; // Limpiar grilla
-
-  // 1. Agrupar documentos por tipo
+function inyectarTarjetasEnGrid(gridId, vehicleDocs) {
+  const docsGrid = document.getElementById(gridId);
   const groupedDocs = {};
   DOC_TYPES.forEach(type => groupedDocs[type] = []);
   
-  currentVehicleDocs.forEach(row => {
+  vehicleDocs.forEach(row => {
     if(row.document_name && groupedDocs[row.document_name] !== undefined) {
       groupedDocs[row.document_name].push(row);
     }
   });
 
-  // 2. Renderizar las 4 columnas en orden
   DOC_TYPES.forEach(type => {
     const col = document.createElement('div');
-    col.className = 'flex flex-col gap-3';
+    col.className = 'flex flex-col gap-3 doc-column';
     const docs = groupedDocs[type];
 
     if (docs.length === 0) {
-      // Si no tiene el documento subido
       col.appendChild(createEmptyCard(type));
     } else {
-      // Mostrar siempre el más reciente arriba (índice 0)
       col.appendChild(createDocCard(docs[0], type, true));
       
-      // Si el switch está activo y hay historial, apilar los antiguos debajo
-      if (showHistory && docs.length > 1) {
+      if (docs.length > 1) {
         const historyContainer = document.createElement('div');
-        historyContainer.className = 'flex flex-col gap-2 pl-3 border-l-2 border-slate-200 mt-1 ml-2';
+        historyContainer.className = 'history-container hidden flex-col gap-2 pl-3 border-l-2 border-slate-200 mt-1 ml-2 transition-all';
         
         for (let i = 1; i < docs.length; i++) {
            historyContainer.appendChild(createDocCard(docs[i], type, false));
@@ -113,7 +171,20 @@ function renderDocumentsGrid() {
   });
 }
 
-// --- Constructores de UI ---
+function toggleHistorial(checkbox, gridId) {
+  const grid = document.getElementById(gridId);
+  const historyContainers = grid.querySelectorAll('.history-container');
+  historyContainers.forEach(container => {
+    if (checkbox.checked) {
+      container.classList.remove('hidden');
+      container.classList.add('flex');
+    } else {
+      container.classList.add('hidden');
+      container.classList.remove('flex');
+    }
+  });
+}
+
 function createDocCard(doc, typeName, isLatest) {
   let statusConfig = { color: 'bg-emerald-50 border-emerald-200 text-emerald-700', badge: 'bg-emerald-100 text-emerald-800', text: 'Vigente' };
   
@@ -147,9 +218,7 @@ function createDocCard(doc, typeName, isLatest) {
   }
 
   const card = document.createElement('div');
-  
   if (isLatest) {
-    // 👉 CAMBIO AQUÍ: Usamos h-48 para obligar a que todas midan exactamente lo mismo
     card.className = `p-5 rounded-xl border shadow-sm ${statusConfig.color} flex flex-col justify-between transition-all h-48`;
     card.innerHTML = `
       <div class="flex justify-between items-start mb-2">
@@ -181,7 +250,6 @@ function createDocCard(doc, typeName, isLatest) {
 
 function createEmptyCard(typeName) {
   const card = document.createElement('div');
-  // 👉 CAMBIO AQUÍ: También le ponemos h-48 y justify-between para que cuadre con las demás
   card.className = `p-5 rounded-xl border shadow-sm bg-slate-50 border-slate-200 text-slate-400 flex flex-col justify-between h-48 border-dashed`;
   card.innerHTML = `
     <div class="flex justify-between items-start">
@@ -195,18 +263,20 @@ function createEmptyCard(typeName) {
   return card;
 }
 
-// --- Copiar aquí debajo la lógica del UploadModal que ya tenías ---
+// ==========================================
+// LÓGICA DE SUBIDA DE ARCHIVOS Y MODAL
+// ==========================================
 const uploadModal = document.getElementById('uploadModal');
-const openUploadBtn = document.getElementById('openUploadBtn');
 const closeModalBtn = document.getElementById('closeModalBtn');
 const uploadForm = document.getElementById('uploadForm');
 const uploadFeedback = document.getElementById('uploadFeedback');
 const uploadSubmitBtn = document.getElementById('uploadSubmitBtn');
 
-openUploadBtn.addEventListener('click', () => {
-  document.getElementById('modalVehicleId').value = currentVehicleId;
+function abrirModalSubida(vehId, plate) {
+  document.getElementById('modalVehicleId').value = vehId;
+  document.querySelector('#uploadModal h3').textContent = `Subir Documento - ${plate}`;
   uploadModal.classList.remove('hidden');
-});
+}
 
 closeModalBtn.addEventListener('click', () => {
   uploadModal.classList.add('hidden');
@@ -224,7 +294,10 @@ uploadForm.addEventListener('submit', async (e) => {
   formData.append('vehicle_id', document.getElementById('modalVehicleId').value);
   formData.append('document_type_id', document.getElementById('docTypeSelect').value);
   formData.append('file', document.getElementById('fileInput').files[0]);
-  formData.append('uploaded_by', 1); 
+  
+  // Buscamos el usuario y nos aseguramos de que si no tiene ID, envíe un 1
+  const user = JSON.parse(localStorage.getItem('saedocs_user'));
+  formData.append('uploaded_by', user?.id || 1);
 
   const expDate = document.getElementById('expirationDate').value;
   if (expDate) formData.append('expiration_date', expDate);
@@ -243,108 +316,90 @@ uploadForm.addEventListener('submit', async (e) => {
     
     setTimeout(() => {
       closeModalBtn.click();
-      document.getElementById('searchForm').dispatchEvent(new Event('submit'));
+      document.getElementById('searchForm').dispatchEvent(new Event('submit')); // Re-renderiza la búsqueda
     }, 1000);
 
-    loadDashboardStats();
+    loadDashboardStats(); // Actualiza el semáforo y las vistas
 
   } catch (error) {
     uploadFeedback.textContent = error.message;
-    uploadFeedback.className = 'text-sm font-bold text-red-600 text-center mt-3 block';
+    uploadFeedback.className = 'text-sm font-bold text-rose-600 text-center mt-3 block';
   } finally {
     uploadSubmitBtn.disabled = false;
     uploadSubmitBtn.innerHTML = 'Confirmar y Subir';
   }
 });
 
-// --- Lógica del Botón Descargar Carpeta (ZIP) ---
-const downloadFolderBtn = document.getElementById('downloadFolderBtn');
-
-if (downloadFolderBtn) {
-  downloadFolderBtn.addEventListener('click', async (e) => {
-    const btn = e.currentTarget;
-    const originalHtml = btn.innerHTML;
-    
-    // Cambiar estado visual mientras empaqueta
-    btn.disabled = true;
-    btn.innerHTML = 'Empaquetando... ⏳';
-    btn.classList.add('opacity-75');
-
-    try {
-      const zip = new JSZip();
-      
-      // Creamos una carpeta dentro del ZIP con la patente (Ej: SAE_CJBB63)
-      const folderName = `SAE_${currentVehicleDocs[0].plate}`;
-      const folder = zip.folder(folderName);
-
-      // Agrupamos para obtener solo el más reciente de cada tipo (igual que en la grilla)
-      const groupedDocs = {};
-      DOC_TYPES.forEach(t => groupedDocs[t] = []);
-      currentVehicleDocs.forEach(row => {
-        if(row.document_name && groupedDocs[row.document_name]) {
-          groupedDocs[row.document_name].push(row);
-        }
-      });
-
-      // Mapeamos las descargas en paralelo para que sea ultra rápido
-      const fetchPromises = DOC_TYPES.map(async (type) => {
-        const docs = groupedDocs[type];
-        if (docs && docs.length > 0) {
-          const latestDoc = docs[0]; 
-          const url = latestDoc.cloudinary_url;
-          
-          // Extraemos la extensión real (ej: pdf, png, jpg) de Cloudinary
-          const ext = url.split('.').pop().split(/[#?]/)[0] || 'pdf';
-          
-          // Descargamos el archivo a la memoria del navegador
-          const response = await fetch(url);
-          if (!response.ok) throw new Error(`Fallo al descargar ${type}`);
-          const blob = await response.blob();
-          
-          // Guardamos en el ZIP con el nombre bonito (Ej: SOAP.pdf)
-          folder.file(`${type}.${ext}`, blob);
-        }
-      });
-
-      // Esperamos a que todos los documentos se descarguen
-      await Promise.all(fetchPromises);
-
-      // Generamos el archivo .zip final y forzamos la descarga
-      const content = await zip.generateAsync({ type: 'blob' });
-      saveAs(content, `Carpeta_${folderName}.zip`);
-
-    } catch (error) {
-      console.error('Error generando ZIP:', error);
-      alert('Hubo un error al descargar los documentos. Revisa tu conexión.');
-    } finally {
-      // Restauramos el botón a la normalidad
-      btn.disabled = false;
-      btn.innerHTML = originalHtml;
-      btn.classList.remove('opacity-75');
-    }
-  });
-}
-
-// --- Inicialización de Sesión ---
-document.addEventListener('DOMContentLoaded', () => {
-  const storedUser = localStorage.getItem('saedocs_user');
-  
-  if (storedUser) {
-    const user = JSON.parse(storedUser);
-    document.getElementById('navUserName').textContent = user.name;
-    
-    // Si el usuario es admin, mostramos el botón del panel
-    if (user.role === 'admin') {
-      document.getElementById('adminPanelBtn').classList.remove('hidden');
-    }
+document.getElementById('docTypeSelect').addEventListener('change', (e) => {
+  const dateContainer = document.getElementById('expirationDateContainer');
+  if (e.target.value === '4') { // Si es Padrón
+    dateContainer.classList.add('hidden');
+    document.getElementById('expirationDate').value = ''; 
+  } else {
+    dateContainer.classList.remove('hidden');
   }
 });
 
-// --- Lógica de Navegación del Sidebar ---
+// ==========================================
+// DESCARGAR CARPETA ZIP INDIVIDUAL
+// ==========================================
+async function descargarCarpetaZIP(plate, btnElement) {
+  const originalHtml = btnElement.innerHTML;
+  btnElement.disabled = true;
+  btnElement.innerHTML = 'Empaquetando... ⏳';
+  btnElement.classList.add('opacity-75');
+
+  try {
+    const zip = new JSZip();
+    const folderName = `SAE_${plate}`;
+    const folder = zip.folder(folderName);
+    
+    // Obtenemos los docs de este camión desde la memoria global
+    const vehicleDocs = window.vehiculosBuscados[plate] || [];
+    
+    const groupedDocs = {};
+    DOC_TYPES.forEach(t => groupedDocs[t] = []);
+    vehicleDocs.forEach(row => {
+      if(row.document_name && groupedDocs[row.document_name]) {
+        groupedDocs[row.document_name].push(row);
+      }
+    });
+
+    const fetchPromises = DOC_TYPES.map(async (type) => {
+      const docs = groupedDocs[type];
+      if (docs && docs.length > 0) {
+        const latestDoc = docs[0]; 
+        const url = latestDoc.cloudinary_url;
+        const ext = url.split('.').pop().split(/[#?]/)[0] || 'pdf';
+        
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Fallo al descargar ${type}`);
+        const blob = await response.blob();
+        
+        folder.file(`${type}.${ext}`, blob);
+      }
+    });
+
+    await Promise.all(fetchPromises);
+    const content = await zip.generateAsync({ type: 'blob' });
+    saveAs(content, `Carpeta_${folderName}.zip`);
+
+  } catch (error) {
+    console.error('Error generando ZIP:', error);
+    alert('Hubo un error al descargar los documentos. Revisa tu conexión a internet.');
+  } finally {
+    btnElement.disabled = false;
+    btnElement.innerHTML = originalHtml;
+    btnElement.classList.remove('opacity-75');
+  }
+}
+
+// ==========================================
+// LÓGICA DE NAVEGACIÓN (SIDEBAR)
+// ==========================================
 function cambiarVista(vistaDestino) {
-  const vistas = ['buscador', 'aldia', 'porvencer', 'vencidos'];
+  const vistas = ['buscador', 'aldia', 'porvencer', 'vencidos', 'flota']; 
   
-  // 1. Mostrar/Ocultar secciones
   vistas.forEach(v => {
     document.getElementById(`vista-${v}`).classList.add('hidden');
     document.getElementById(`vista-${v}`).classList.remove('block');
@@ -352,37 +407,23 @@ function cambiarVista(vistaDestino) {
   document.getElementById(`vista-${vistaDestino}`).classList.remove('hidden');
   document.getElementById(`vista-${vistaDestino}`).classList.add('block');
 
-  // 2. Reiniciar colores (remueve activo, añade inactivo)
   vistas.forEach(v => {
     const btn = document.getElementById(`btn-${v}`);
     btn.classList.remove('bg-slate-900', 'text-white', 'shadow-sm');
     btn.classList.add('text-slate-600', 'hover:bg-slate-50');
   });
 
-  // 3. Pintar botón activo
   const btnActivo = document.getElementById(`btn-${vistaDestino}`);
   btnActivo.classList.remove('text-slate-600', 'hover:bg-slate-50');
   btnActivo.classList.add('bg-slate-900', 'text-white', 'shadow-sm');
 }
 
-// --- Lógica del Botón Colapsar Sidebar ---
-document.addEventListener('DOMContentLoaded', () => {
-  const sidebarToggle = document.getElementById('sidebarToggle');
+document.getElementById('sidebarToggle')?.addEventListener('click', () => {
   const sidebar = document.getElementById('sidebar');
   const sidebarTexts = document.querySelectorAll('.sidebar-text');
-
-  if(sidebarToggle) {
-    sidebarToggle.addEventListener('click', () => {
-      // Intercambia el ancho entre 64 (256px) y 20 (80px)
-      sidebar.classList.toggle('w-64');
-      sidebar.classList.toggle('w-20');
-      
-      // Oculta/Muestra el texto
-      sidebarTexts.forEach(text => {
-        text.classList.toggle('hidden');
-      });
-    });
-  }
+  sidebar.classList.toggle('w-64');
+  sidebar.classList.toggle('w-20');
+  sidebarTexts.forEach(text => text.classList.toggle('hidden'));
 });
 
 // ==========================================
@@ -392,18 +433,16 @@ async function loadDashboardStats() {
   try {
     const token = localStorage.getItem('saedocs_token');
     const response = await fetch('http://127.0.0.1:3000/api/vehicles/dashboard-stats', {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
+      headers: { 'Authorization': `Bearer ${token}` }
     });
-    
     const result = await response.json();
     
     if (result.success) {
+      globalFleetData = result.data;
       renderDashboardTable('vista-aldia', result.data.alDia, 'emerald');
       renderDashboardTable('vista-porvencer', result.data.porVencer, 'amber');
       renderDashboardTable('vista-vencidos', result.data.vencidos, 'rose');
+      renderFleetTree(); 
     }
   } catch (error) {
     console.error("Error cargando estadísticas:", error);
@@ -419,7 +458,6 @@ function renderDashboardTable(containerId, vehicles, colorBorder) {
     return;
   }
 
- // Detectamos si es tabla de alerta y definimos el título exacto
   const isAlertTable = containerId === 'vista-vencidos' || containerId === 'vista-porvencer';
   const alertColorText = containerId === 'vista-vencidos' ? 'text-rose-600' : 'text-amber-600';
   const alertTitle = containerId === 'vista-vencidos' ? 'Doc. Vencido' : 'Doc. por Vencer';
@@ -431,8 +469,9 @@ function renderDashboardTable(containerId, vehicles, colorBorder) {
           <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
             <th class="px-6 py-4 font-semibold">Patente</th>
             <th class="px-6 py-4 font-semibold">Tipo</th>
+            <th class="px-6 py-4 font-semibold">Sucursal</th>
             <th class="px-6 py-4 font-semibold ${isAlertTable ? alertColorText : ''}">
-              ${isAlertTable ? alertTitle : 'N° Interno'}
+              ${isAlertTable ? alertTitle : 'Marca'}
             </th>
             <th class="px-6 py-4 font-semibold text-right">Acción</th>
           </tr>
@@ -441,22 +480,16 @@ function renderDashboardTable(containerId, vehicles, colorBorder) {
   `;
 
   vehicles.forEach(v => {
-    let columnContent = v.internal_number || '-';
+    // 1. Por defecto, preparamos la Marca (Para la tabla "Al Día")
+    let columnContent = v.brand || 'Sin Marca';
     
+    // 2. PERO si es tabla de alerta, SOBRESCRIBIMOS la marca con los documentos faltantes/vencidos
     if (isAlertTable) {
       if (containerId === 'vista-vencidos') {
         let parts = [];
-        
-        if (v.alerts.expired.length > 0) {
-          parts.push(`<div><span class="font-bold">Vencidos:</span> <span class="text-slate-800 font-medium">${v.alerts.expired.join(' - ')}</span></div>`);
-        }
-        if (v.alerts.missing.length > 0) {
-          parts.push(`<div><span class="font-bold">Faltan:</span> <span class="text-slate-800 font-medium">${v.alerts.missing.join(' - ')}</span></div>`);
-        }
-        
-        // Unimos los bloques con una línea divisoria continua
+        if (v.alerts.expired.length > 0) parts.push(`<div><span class="font-bold">Vencidos:</span> <span class="text-slate-800 font-medium">${v.alerts.expired.join(' - ')}</span></div>`);
+        if (v.alerts.missing.length > 0) parts.push(`<div><span class="font-bold">Faltan:</span> <span class="text-slate-800 font-medium">${v.alerts.missing.join(' - ')}</span></div>`);
         columnContent = parts.join('<div class="border-t border-rose-300 my-2 w-full"></div>');
-        
       } else if (containerId === 'vista-porvencer') {
         columnContent = `<div><span class="font-bold">Por vencer:</span> <span class="text-slate-800 font-medium">${v.alerts.expiring.join(' - ')}</span></div>`;
       }
@@ -466,6 +499,7 @@ function renderDashboardTable(containerId, vehicles, colorBorder) {
       <tr class="hover:bg-slate-50 transition-colors">
         <td class="px-6 py-4 font-bold text-slate-800 align-middle">${v.plate}</td>
         <td class="px-6 py-4 text-sm text-slate-600 align-middle">${v.type}</td>
+        <td class="px-6 py-4 text-sm text-slate-600 font-medium align-middle">${v.branch || 'Coquimbo'}</td>
         <td class="px-6 py-4 text-sm ${isAlertTable ? alertColorText : 'text-slate-600'} align-middle">
           ${columnContent}
         </td>
@@ -479,22 +513,85 @@ function renderDashboardTable(containerId, vehicles, colorBorder) {
   });
 
   html += `</tbody></table></div>`;
-  
   container.className = `bg-white rounded-2xl shadow-sm border-2 border-${colorBorder}-200 overflow-hidden`;
   container.innerHTML = html;
 }
 
-// Interconecta la tabla con el buscador principal
 function buscarDesdeTabla(plate) {
   cambiarVista('buscador');
   document.getElementById('plateInput').value = plate;
-  
-  // Simulamos un submit en el formulario de búsqueda
-  const event = new Event('submit', { cancelable: true, bubbles: true });
-  document.getElementById('searchForm').dispatchEvent(event);
+  document.getElementById('searchForm').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
 }
 
-// --- Lógica de Sesión ---
+function renderFleetTree() {
+  const treeContainer = document.getElementById('flotaTree');
+  if(!treeContainer) return;
+
+  const filterTipo = document.getElementById('filterTipo')?.value || 'ALL';
+  const filterEstado = document.getElementById('filterEstado')?.value || 'ALL';
+  const filterSucursal = document.getElementById('filterSucursal')?.value || 'ALL';
+
+  let allVehicles = [];
+  globalFleetData.alDia.forEach(v => allVehicles.push({...v, status: 'aldia', color: 'bg-emerald-500', icon: '🟢'}));
+  globalFleetData.porVencer.forEach(v => allVehicles.push({...v, status: 'porvencer', color: 'bg-amber-400', icon: '🟡'}));
+  globalFleetData.vencidos.forEach(v => allVehicles.push({...v, status: 'vencidos', color: 'bg-rose-500', icon: '🔴'}));
+
+  if(filterEstado !== 'ALL') allVehicles = allVehicles.filter(v => v.status === filterEstado);
+  if(filterTipo !== 'ALL') allVehicles = allVehicles.filter(v => v.type === filterTipo);
+  if(filterSucursal !== 'ALL') allVehicles = allVehicles.filter(v => (v.branch || 'Coquimbo') === filterSucursal); 
+
+  const grouped = allVehicles.reduce((acc, v) => {
+    if(!acc[v.type]) acc[v.type] = [];
+    acc[v.type].push(v);
+    return acc;
+  }, {});
+
+  if(Object.keys(grouped).length === 0) {
+    treeContainer.innerHTML = `<p class="text-slate-500 text-center py-8 font-medium">No hay vehículos con estos filtros.</p>`;
+    return;
+  }
+
+  let html = '';
+  for(const type in grouped) {
+    html += `
+      <div class="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+        <div class="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center font-bold text-slate-700">
+          <div class="flex items-center gap-2">
+            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+            ${type}
+          </div>
+          <span class="text-xs bg-slate-200 text-slate-700 px-2 py-1 rounded-md">${grouped[type].length} unidades</span>
+        </div>
+        <div class="divide-y divide-slate-100">
+    `;
+    
+    grouped[type].forEach(v => {
+      html += `
+        <div class="p-3 hover:bg-slate-50 transition-colors flex items-center justify-between group cursor-pointer" onclick="buscarDesdeTabla('${v.plate}')">
+          <div class="flex items-center gap-4 pl-2 sm:pl-4 border-l-2 border-transparent group-hover:border-blue-500 transition-all">
+            <div class="w-3 h-3 rounded-full ${v.color} shadow-sm shrink-0"></div>
+            <div>
+              <span class="font-bold text-slate-800 text-sm block">${v.plate} <span class="text-slate-500 font-normal ml-1">- ${v.brand || 'Sin Marca'}</span></span>
+              <span class="text-xs text-slate-500"><span class="font-medium text-slate-600">${v.branch || 'Coquimbo'}</span></span>
+            </div>
+          </div>
+          <div class="flex items-center gap-3 pr-2">
+            ${v.status === 'vencidos' ? '<span class="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded uppercase hidden sm:block">Revisar Docs</span>' : ''}
+            <svg class="w-4 h-4 text-slate-300 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+          </div>
+        </div>
+      `;
+    });
+    html += `</div></div>`;
+  }
+  
+  treeContainer.innerHTML = html;
+}
+
+document.getElementById('filterTipo')?.addEventListener('change', renderFleetTree);
+document.getElementById('filterEstado')?.addEventListener('change', renderFleetTree);
+document.getElementById('filterSucursal')?.addEventListener('change', renderFleetTree);
+
 function cerrarSesion() {
   localStorage.removeItem('saedocs_token');
   localStorage.removeItem('saedocs_user');
