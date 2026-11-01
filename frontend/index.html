@@ -17,6 +17,11 @@
   <!-- Tailwind CSS (CDN para MVP) -->
   <script src="https://cdn.tailwindcss.com"></script>
 
+  
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+
   <!-- Guardián de Autenticación -->
   <script>
     if (!localStorage.getItem('saedocs_token')) {
@@ -94,6 +99,11 @@
         <button onclick="cambiarVista('vencidos')" id="btn-vencidos" title="Vencidos / Faltantes" class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-xl font-medium text-sm transition-all w-full text-left">
           <svg class="w-5 h-5 text-rose-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
           <span class="sidebar-text whitespace-nowrap transition-opacity">Vencidos / Faltantes</span>
+        </button>
+
+        <button onclick="cambiarVista('estadisticas')" id="btn-estadisticas" title="Estadísticas" class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-xl font-medium text-sm transition-all w-full text-left">
+          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>
+          <span class="sidebar-text whitespace-nowrap transition-opacity">Estadísticas Visuales</span>
         </button>
       </nav>
     </aside>
@@ -173,38 +183,73 @@
             <h2 class="text-2xl font-bold text-slate-800">Directorio de Flota</h2>
             <p class="text-slate-500 text-sm">Vista estructurada y semáforo de estado</p>
           </div>
-          <!-- Filtros -->
-          <div class="flex flex-wrap gap-3">
-            <select id="filterTipo" class="border border-slate-200 text-slate-600 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-slate-800 outline-none">
-              <option value="ALL">Todos los tipos</option>
-              <option value="Camión">Camión</option>
-              <option value="Tractocamión">Tractocamión</option>
-              <option value="Semirremolque">Semirremolque</option>
-              <option value="Camioneta">Camioneta</option>
-              <option value="Maquinaria">Maquinaria</option>
-            </select>
-            <select id="filterEstado" class="border border-slate-200 text-slate-600 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-slate-800 outline-none">
-              <option value="ALL">Todos los estados</option>
-              <option value="aldia">🟢 Al Día</option>
-              <option value="porvencer">🟡 Por Vencer</option>
-              <option value="vencidos">🔴 Vencido / Falta</option>
-            </select>
-            <select id="filterSucursal" class="border border-slate-200 text-slate-600 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-slate-800 outline-none">
-              <option value="ALL">Todas las sucursales</option>
-              <option value="Coquimbo">Coquimbo</option>
-              <option value="Alto Hospicio">Alto Hospicio</option>
-              <option value="Calama">Calama</option>
-              <option value="La Portada">La Portada</option>
-              <option value="La Negra">La Negra</option>
-              <option value="Copiapó">Copiapó</option>
-              <option value="Lampa">Lampa</option>
-            </select>
+          
+          <!-- Contenedor derecho: Botón y Filtros -->
+          <div class="flex flex-col sm:items-end gap-3 w-full sm:w-auto">
+            <!-- Botón Excel -->
+            <button onclick="descargarExcelFlota()" class="bg-emerald-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700 transition-colors shadow-sm flex items-center gap-2 self-start sm:self-end">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+              Exportar a Excel
+            </button>
+
+            <!-- Filtros -->
+            <div class="flex flex-wrap gap-3 w-full sm:w-auto">
+              <select id="filterTipo" class="border border-slate-200 text-slate-600 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-slate-800 outline-none flex-1 sm:flex-none">
+                <option value="ALL">Todos los tipos</option>
+                <option value="Vehículo">Vehículo</option>
+                <option value="Equipo">Equipo</option>
+              </select>
+              <select id="filterEstado" class="border border-slate-200 text-slate-600 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-slate-800 outline-none flex-1 sm:flex-none">
+                <option value="ALL">Todos los estados</option>
+                <option value="aldia">🟢 Al Día</option>
+                <option value="porvencer">🟡 Por Vencer</option>
+                <option value="vencidos">🔴 Vencido / Falta</option>
+              </select>
+              <select id="filterSucursal" class="border border-slate-200 text-slate-600 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-slate-800 outline-none w-full sm:w-auto">
+                <option value="ALL">Todas las sucursales</option>
+                <option value="Coquimbo">Coquimbo</option>
+                <option value="Alto Hospicio">Alto Hospicio</option>
+                <option value="Calama">Calama</option>
+                <option value="La Portada">La Portada</option>
+                <option value="La Negra">La Negra</option>
+                <option value="Copiapó">Copiapó</option>
+                <option value="Lampa">Lampa</option>
+              </select>
+            </div>
           </div>
         </div>
 
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-2 sm:p-4">
           <div id="flotaTree" class="space-y-4">
             <!-- Aquí el JS inyectará el árbol -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- VISTA 6: Estadísticas                      -->
+      <!-- ========================================== -->
+      <section id="vista-estadisticas" class="max-w-6xl mx-auto hidden transition-opacity duration-300">
+        <div class="mb-8">
+          <h2 class="text-2xl font-bold text-slate-800">Rendimiento Operativo</h2>
+          <p class="text-slate-500 text-sm">Estado global y métricas por sucursal en tiempo real</p>
+        </div>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Gráfico 1: Global -->
+          <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center">
+            <h3 class="text-lg font-bold text-slate-700 mb-6 w-full text-center">Estado Global de la Flota</h3>
+            <div class="relative w-full max-w-sm h-72">
+              <canvas id="chartGlobal"></canvas>
+            </div>
+          </div>
+          
+          <!-- Gráfico 2: Por Sucursal -->
+          <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center">
+            <h3 class="text-lg font-bold text-slate-700 mb-6 w-full text-center">Rendimiento por Sucursal</h3>
+            <div class="relative w-full h-72">
+              <canvas id="chartSucursales"></canvas>
+            </div>
           </div>
         </div>
       </section>

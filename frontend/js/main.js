@@ -398,8 +398,8 @@ async function descargarCarpetaZIP(plate, btnElement) {
 // LÓGICA DE NAVEGACIÓN (SIDEBAR)
 // ==========================================
 function cambiarVista(vistaDestino) {
-  const vistas = ['buscador', 'aldia', 'porvencer', 'vencidos', 'flota']; 
-  
+// Dentro de la función cambiarVista
+ const vistas = ['buscador', 'aldia', 'porvencer', 'vencidos', 'flota', 'estadisticas'];  
   vistas.forEach(v => {
     document.getElementById(`vista-${v}`).classList.add('hidden');
     document.getElementById(`vista-${v}`).classList.remove('block');
@@ -443,6 +443,7 @@ async function loadDashboardStats() {
       renderDashboardTable('vista-porvencer', result.data.porVencer, 'amber');
       renderDashboardTable('vista-vencidos', result.data.vencidos, 'rose');
       renderFleetTree(); 
+      renderEstadisticas(); 
     }
   } catch (error) {
     console.error("Error cargando estadísticas:", error);
@@ -591,6 +592,234 @@ function renderFleetTree() {
 document.getElementById('filterTipo')?.addEventListener('change', renderFleetTree);
 document.getElementById('filterEstado')?.addEventListener('change', renderFleetTree);
 document.getElementById('filterSucursal')?.addEventListener('change', renderFleetTree);
+
+// ==========================================
+// EXPORTAR REPORTE EXCEL DEL DIRECTORIO (A PRUEBA DE WEONES 🎨)
+// ==========================================
+function descargarExcelFlota() {
+  const todosLosVehiculos = [
+    ...globalFleetData.alDia,
+    ...globalFleetData.porVencer,
+    ...globalFleetData.vencidos
+  ];
+
+  if (todosLosVehiculos.length === 0) {
+    alert("No hay datos de flota para exportar.");
+    return;
+  }
+
+  const ordenSucursales = [
+    'Coquimbo',
+    'Alto Hospicio',
+    'Calama',
+    'La Portada',
+    'La Negra',
+    'Copiapó',
+    'Lampa'
+  ];
+
+  const workbook = XLSX.utils.book_new();
+  const sucursalesProcesadas = new Set();
+
+  const obtenerEstadoDoc = (alerts, docName) => {
+    if (alerts?.missing?.includes(docName)) return "Faltante";
+    if (alerts?.expired?.includes(docName)) return "Vencido";
+    if (alerts?.expiring?.includes(docName)) return "Por Vencer";
+    return "Al día";
+  };
+
+  const armarFilas = (vehiculos) => vehiculos.map(v => {
+    const alertas = v.alerts || {};
+    return {
+      "Patente": v.plate,
+      "Tipo": v.type,
+      "SOAP": obtenerEstadoDoc(alertas, "SOAP"),
+      "Revisión Técnica": obtenerEstadoDoc(alertas, "Rev. Técnica"),
+      "Permiso Circulación": obtenerEstadoDoc(alertas, "Permiso de circulación"),
+      "Padrón": obtenerEstadoDoc(alertas, "Padrón")
+    };
+  });
+
+  // 🎨 FUNCIÓN MÁGICA PARA PINTAR LAS CELDAS Y DAR FORMATO
+  const aplicarColoresYFormato = (worksheet) => {
+    const range = XLSX.utils.decode_range(worksheet['!ref']);
+    
+    // 1. Pintar la Cabecera (Fondo oscuro, texto blanco)
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+      const cell_ref = XLSX.utils.encode_cell({ c: C, r: 0 });
+      if (worksheet[cell_ref]) {
+        worksheet[cell_ref].s = {
+          fill: { fgColor: { rgb: "FF0F172A" } }, // Gris muy oscuro (Slate 900)
+          font: { bold: true, color: { rgb: "FFFFFFFF" } }, // Blanco
+          alignment: { horizontal: "center", vertical: "center" }
+        };
+      }
+    }
+
+    // 2. Pintar los estados según el texto
+    for (let R = 1; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const cell_ref = XLSX.utils.encode_cell({ c: C, r: R });
+        const cell = worksheet[cell_ref];
+        
+        if (!cell || !cell.v) continue;
+
+        let bgColor = null;
+        let textColor = "FF000000";
+
+        // Asignamos colores ARGB (Alpha, Red, Green, Blue)
+        if (cell.v === "Al día") { 
+          bgColor = "FFDCFCE7"; textColor = "FF166534"; // Fondo verde pastel, texto verde oscuro
+        } else if (cell.v === "Por Vencer") { 
+          bgColor = "FFFEF08A"; textColor = "FF854D0E"; // Fondo amarillo pastel, texto café/amarillo oscuro
+        } else if (cell.v === "Vencido" || cell.v === "Faltante") { 
+          bgColor = "FFFECACA"; textColor = "FF991B1B"; // Fondo rojo pastel, texto rojo oscuro
+        }
+
+        if (bgColor) {
+          cell.s = {
+            fill: { fgColor: { rgb: bgColor } },
+            font: { color: { rgb: textColor }, bold: true },
+            alignment: { horizontal: "center", vertical: "center" }
+          };
+        } else {
+          // Centrar el texto de las patentes y tipos que no llevan color de alerta
+          cell.s = { alignment: { horizontal: "center", vertical: "center" } };
+        }
+      }
+    }
+    
+    // 3. Ensanchar las columnas para que no se corte el texto
+    worksheet['!cols'] = [
+      { wch: 12 }, // Patente
+      { wch: 15 }, // Tipo
+      { wch: 18 }, // SOAP
+      { wch: 18 }, // Rev. Técnica
+      { wch: 22 }, // Permiso Circulación
+      { wch: 18 }  // Padrón
+    ];
+  };
+
+  ordenSucursales.forEach(sucursal => {
+    const vehiculosSucursal = todosLosVehiculos.filter(v => (v.branch || 'Coquimbo') === sucursal);
+    if (vehiculosSucursal.length > 0) {
+      const worksheet = XLSX.utils.json_to_sheet(armarFilas(vehiculosSucursal));
+      aplicarColoresYFormato(worksheet); // Aplicamos pintura antes de inyectar la pestaña
+      XLSX.utils.book_append_sheet(workbook, worksheet, sucursal);
+    }
+    sucursalesProcesadas.add(sucursal);
+  });
+
+  const otrosVehiculos = todosLosVehiculos.filter(v => !sucursalesProcesadas.has(v.branch || 'Coquimbo'));
+  if (otrosVehiculos.length > 0) {
+    const worksheet = XLSX.utils.json_to_sheet(armarFilas(otrosVehiculos));
+    aplicarColoresYFormato(worksheet);
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Otras");
+  }
+
+  const fecha = new Date().toLocaleDateString('es-CL').replace(/\//g, '-');
+  XLSX.writeFile(workbook, `Reporte_SAEDocs_${fecha}.xlsx`);
+}
+
+// ==========================================
+// RENDERIZADO DE GRÁFICOS (CHART.JS)
+// ==========================================
+let chartGlobalInst = null;
+let chartSucursalesInst = null;
+
+function renderEstadisticas() {
+  const ctxGlobal = document.getElementById('chartGlobal');
+  const ctxSucursales = document.getElementById('chartSucursales');
+  if (!ctxGlobal || !ctxSucursales) return;
+
+  // 1. Datos Globales
+  const totalAlDia = globalFleetData.alDia.length;
+  const totalPorVencer = globalFleetData.porVencer.length;
+  const totalVencidos = globalFleetData.vencidos.length;
+
+  // Configuración maestra para los números
+  const labelConfig = {
+    color: '#ffffff',
+    font: { weight: 'bold', size: 14 },
+    textStrokeColor: 'rgba(0,0,0,0.15)', // Borde sutil para que lea bien sobre el amarillo
+    textStrokeWidth: 3,
+    formatter: (value) => value > 0 ? value : '' // Ocultamos los ceros para mantenerlo limpio
+  };
+
+  if (chartGlobalInst) chartGlobalInst.destroy();
+  chartGlobalInst = new Chart(ctxGlobal, {
+    type: 'doughnut',
+    plugins: [ChartDataLabels], // Activamos el plugin en este gráfico
+    data: {
+      labels: ['Al Día', 'Por Vencer', 'Vencidos / Faltantes'],
+      datasets: [{
+        data: [totalAlDia, totalPorVencer, totalVencidos],
+        backgroundColor: ['#10b981', '#fbbf24', '#f43f5e'],
+        borderWidth: 0,
+        hoverOffset: 5
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } },
+        datalabels: labelConfig // Inyectamos la configuración de números
+      },
+      cutout: '65%' 
+    }
+  });
+
+  // 2. Datos por Sucursal
+  const sucursalesMap = {};
+  
+  globalFleetData.alDia.forEach(v => {
+    const b = v.branch || 'Coquimbo';
+    if (!sucursalesMap[b]) sucursalesMap[b] = { alDia: 0, porVencer: 0, vencidos: 0 };
+    sucursalesMap[b].alDia++;
+  });
+  globalFleetData.porVencer.forEach(v => {
+    const b = v.branch || 'Coquimbo';
+    if (!sucursalesMap[b]) sucursalesMap[b] = { alDia: 0, porVencer: 0, vencidos: 0 };
+    sucursalesMap[b].porVencer++;
+  });
+  globalFleetData.vencidos.forEach(v => {
+    const b = v.branch || 'Coquimbo';
+    if (!sucursalesMap[b]) sucursalesMap[b] = { alDia: 0, porVencer: 0, vencidos: 0 };
+    sucursalesMap[b].vencidos++;
+  });
+
+  const labels = Object.keys(sucursalesMap);
+  const dataAlDia = labels.map(l => sucursalesMap[l].alDia);
+  const dataPorVencer = labels.map(l => sucursalesMap[l].porVencer);
+  const dataVencidos = labels.map(l => sucursalesMap[l].vencidos);
+
+  if (chartSucursalesInst) chartSucursalesInst.destroy();
+  chartSucursalesInst = new Chart(ctxSucursales, {
+    type: 'bar',
+    plugins: [ChartDataLabels], // Activamos el plugin en este gráfico
+    data: {
+      labels: labels,
+      datasets: [
+        { label: 'Al Día', data: dataAlDia, backgroundColor: '#10b981', borderRadius: 4 },
+        { label: 'Por Vencer', data: dataPorVencer, backgroundColor: '#fbbf24', borderRadius: 4 },
+        { label: 'Vencidos / Faltantes', data: dataVencidos, backgroundColor: '#f43f5e', borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { stacked: true, grid: { display: false } },
+        y: { stacked: true, border: { display: false } }
+      },
+      plugins: {
+        legend: { display: false },
+        datalabels: labelConfig // Inyectamos la configuración de números
+      }
+    }
+  });
+}
 
 function cerrarSesion() {
   localStorage.removeItem('saedocs_token');
