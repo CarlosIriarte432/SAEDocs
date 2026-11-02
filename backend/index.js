@@ -16,7 +16,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middlewares base
-app.use(cors());
+app.use(cors({
+  origin: 'https://carlosiriarte432.github.io', // Tu dominio exacto de GitHub Pages
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true
+}));
 app.use(express.json());
 
 // 1. Servir el Frontend: Esto hace que al entrar a localhost:3000 cargue tu HTML

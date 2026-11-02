@@ -1,7 +1,7 @@
 // --- Variables Globales ---
 let globalFleetData = { alDia: [], porVencer: [], vencidos: [] };
 const DOC_TYPES = ['SOAP', 'Revisión Técnica', 'Permiso de Circulación', 'Padrón'];
-
+const API_BASE_URL = 'https://saedocs.onrender.com/api';
 // Inicialización
 document.addEventListener('DOMContentLoaded', () => {
   const storedUser = localStorage.getItem('saedocs_user');
@@ -41,7 +41,7 @@ document.getElementById('searchForm').addEventListener('submit', async (e) => {
 
     // Disparamos peticiones en paralelo
     const fetchPromises = plates.map(plate => 
-      fetch(`http://localhost:3000/api/vehicles/${plate}`).then(res => res.json())
+      fetch(`https://saedocs.onrender.com/api/vehicles/${plate}`).then(res => res.json())
     );
 
     const results = await Promise.allSettled(fetchPromises);
@@ -303,7 +303,7 @@ uploadForm.addEventListener('submit', async (e) => {
   if (expDate) formData.append('expiration_date', expDate);
 
   try {
-    const response = await fetch('http://localhost:3000/api/documents/upload', {
+    const response = await fetch('https://saedocs.onrender.com/api/documents/upload', {
       method: 'POST',
       body: formData 
     });
@@ -432,7 +432,7 @@ document.getElementById('sidebarToggle')?.addEventListener('click', () => {
 async function loadDashboardStats() {
   try {
     const token = localStorage.getItem('saedocs_token');
-    const response = await fetch('http://127.0.0.1:3000/api/vehicles/dashboard-stats', {
+    const response = await fetch('https://saedocs.onrender.com/api/vehicles/dashboard-stats', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     const result = await response.json();
