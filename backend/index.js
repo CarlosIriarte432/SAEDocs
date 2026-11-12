@@ -16,8 +16,13 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middlewares base
+// Middlewares base
 app.use(cors({
-  origin: 'https://carlosiriarte432.github.io', // Tu dominio exacto de GitHub Pages
+  origin: [
+    'http://127.0.0.1:5500', // Entorno Local
+    'http://localhost:5500', // Entorno Local alternativo
+    'https://carlosiriarte432.github.io' // Entorno Producción
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 }));

@@ -153,8 +153,9 @@
     </div>
   </div>
 
+  <script src="./js/config.js"></script>
   <script>
-    const API_URL = 'https://saedocs.onrender.com/api/admin/vehicles';
+  const API_URL = AppConfig.URL_ADMIN;
     const authHeaders = {
       'Authorization': `Bearer ${localStorage.getItem('saedocs_token')}`,
       'Content-Type': 'application/json'

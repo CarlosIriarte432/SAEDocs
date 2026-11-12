@@ -1,7 +1,9 @@
-// --- Variables Globales ---
+// ==========================================
+// Variables Globales
+// ==========================================
 let globalFleetData = { alDia: [], porVencer: [], vencidos: [] };
 const DOC_TYPES = ['SOAP', 'Revisión Técnica', 'Permiso de Circulación', 'Padrón'];
-const API_BASE_URL = 'https://saedocs.onrender.com/api';
+
 // Inicialización
 document.addEventListener('DOMContentLoaded', () => {
   const storedUser = localStorage.getItem('saedocs_user');
@@ -39,9 +41,9 @@ document.getElementById('searchForm').addEventListener('submit', async (e) => {
     btn.innerHTML = 'Buscando... ⏳';
     btn.disabled = true;
 
-    // Disparamos peticiones en paralelo
+    // Disparamos peticiones en paralelo usando el AppConfig automático
     const fetchPromises = plates.map(plate => 
-      fetch(`https://saedocs.onrender.com/api/vehicles/${plate}`).then(res => res.json())
+      fetch(AppConfig.URL_SEARCH(plate)).then(res => res.json())
     );
 
     const results = await Promise.allSettled(fetchPromises);
@@ -303,7 +305,8 @@ uploadForm.addEventListener('submit', async (e) => {
   if (expDate) formData.append('expiration_date', expDate);
 
   try {
-    const response = await fetch('https://saedocs.onrender.com/api/documents/upload', {
+    // Usamos AppConfig para detectar la ruta automáticamente
+    const response = await fetch(AppConfig.URL_DOCS_UPLOAD, {
       method: 'POST',
       body: formData 
     });
@@ -398,8 +401,7 @@ async function descargarCarpetaZIP(plate, btnElement) {
 // LÓGICA DE NAVEGACIÓN (SIDEBAR)
 // ==========================================
 function cambiarVista(vistaDestino) {
-// Dentro de la función cambiarVista
- const vistas = ['buscador', 'aldia', 'porvencer', 'vencidos', 'flota', 'estadisticas'];  
+  const vistas = ['buscador', 'aldia', 'porvencer', 'vencidos', 'flota', 'estadisticas'];  
   vistas.forEach(v => {
     document.getElementById(`vista-${v}`).classList.add('hidden');
     document.getElementById(`vista-${v}`).classList.remove('block');
@@ -432,9 +434,12 @@ document.getElementById('sidebarToggle')?.addEventListener('click', () => {
 async function loadDashboardStats() {
   try {
     const token = localStorage.getItem('saedocs_token');
-    const response = await fetch('https://saedocs.onrender.com/api/vehicles/dashboard-stats', {
+    
+    // Usamos AppConfig para apuntar automáticamente a la URL correcta
+    const response = await fetch(AppConfig.URL_STATS, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
+    
     const result = await response.json();
     
     if (result.success) {
@@ -718,7 +723,7 @@ function descargarExcelFlota() {
   }
 
   const fecha = new Date().toLocaleDateString('es-CL').replace(/\//g, '-');
-  XLSX.writeFile(workbook, `Reporte_SAEDocs_${fecha}.xlsx`);
+  XLSX.writeFile(workbook, `Reporte_SAEDocs_${fecha}.xlsx`, { cellStyles: true });
 }
 
 // ==========================================
