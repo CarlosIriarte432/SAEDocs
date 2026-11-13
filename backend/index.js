@@ -21,7 +21,9 @@ app.use(cors({
   origin: [
     'http://127.0.0.1:5500', // Entorno Local
     'http://localhost:5500', // Entorno Local alternativo
-    'https://carlosiriarte432.github.io' // Entorno Producción
+    'https://carlosiriarte432.github.io', // Entorno Producción
+    'https://saedocs.carlosiriarte432.workers.dev' // Entorno Producción
+
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
