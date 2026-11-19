@@ -911,6 +911,7 @@ function renderEstadisticas() {
   chartDocumentosInst = new Chart(ctxDocumentos, {
     type: 'bar',
     plugins: [ChartDataLabels],
+    
     data: {
       labels: docStats.map(d => d.label),
       datasets: [
@@ -929,7 +930,16 @@ function renderEstadisticas() {
         y: { stacked: true, grid: { display: false }, border: { display: false } }
       },
       plugins: {
-        legend: { position: 'bottom', labels: { usePointStyle: true, padding: 16 } },
+        legend: {
+          position: 'bottom',
+          labels: { usePointStyle: true, padding: 16 },
+          onHover: (event) => {
+            event.native.target.style.cursor = 'pointer';
+          },
+          onLeave: (event) => {
+            event.native.target.style.cursor = 'default';
+          }
+        },
         datalabels: labelConfig
       }
     }

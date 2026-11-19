@@ -283,9 +283,15 @@
 
         <!-- Gráfico 3: Desglose por Tipo de Documento -->
         <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-1">
-            <h3 class="text-lg font-bold text-slate-700">Estado por Tipo de Documento</h3>
-            <span class="text-xs text-slate-400">Distribución sobre el total de la flota (distingue vencidos vs. pendientes de carga)</span>
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
+            <div>
+              <h3 class="text-lg font-bold text-slate-700">Estado por Tipo de Documento</h3>
+              <span class="text-xs text-slate-400">Distribución sobre el total de la flota (vencidos vs. pendientes de carga)</span>
+            </div>
+            <span class="inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-full w-fit">
+              <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"></path></svg>
+              Haz clic en los estados de documento abajo para ocultar o filtrar
+            </span>
           </div>
           <div class="relative w-full h-64">
             <canvas id="chartDocumentos"></canvas>
