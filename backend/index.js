@@ -16,7 +16,6 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middlewares base
-// Middlewares base
 app.use(cors({
   origin: [
     'http://127.0.0.1:5500', // Entorno Local

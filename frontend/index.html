@@ -229,16 +229,44 @@
       <!-- ========================================== -->
       <!-- VISTA 6: Estadísticas                      -->
       <!-- ========================================== -->
-      <section id="vista-estadisticas" class="max-w-6xl mx-auto hidden transition-opacity duration-300">
-        <div class="mb-8">
+      <section id="vista-estadisticas" class="max-w-6xl mx-auto hidden transition-opacity duration-300 pb-16">
+        <div class="mb-6">
           <h2 class="text-2xl font-bold text-slate-800">Rendimiento Operativo</h2>
-          <p class="text-slate-500 text-sm">Estado global y métricas por sucursal en tiempo real</p>
+          <p class="text-slate-500 text-sm">Estado global y métricas por sucursal en tiempo real — haz clic en cualquier métrica para filtrar</p>
+        </div>
+
+        <!-- Fila de 4 Tarjetas KPI -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div onclick="irADirectorioFiltrado('ALL', 'ALL')" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 cursor-pointer hover:border-slate-400 transition-all">
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Flota</p>
+            <p id="kpiTotalFlota" class="text-3xl font-bold text-slate-900 mt-1">--</p>
+            <p class="text-xs text-slate-500 mt-1">Unidades registradas</p>
+          </div>
+
+          <div onclick="cambiarVista('aldia')" class="bg-white p-5 rounded-2xl shadow-sm border border-emerald-200 cursor-pointer hover:border-emerald-400 transition-all">
+            <p class="text-xs font-semibold uppercase tracking-wider text-emerald-600">Cumplimiento Global</p>
+            <p id="kpiCumplimiento" class="text-3xl font-bold text-emerald-600 mt-1">--%</p>
+            <p id="kpiAlDiaSub" class="text-xs text-slate-500 mt-1">-- vehículos al día</p>
+          </div>
+
+          <div onclick="cambiarVista('porvencer')" class="bg-white p-5 rounded-2xl shadow-sm border border-amber-200 cursor-pointer hover:border-amber-400 transition-all">
+            <p class="text-xs font-semibold uppercase tracking-wider text-amber-600">Por Vencer (30d)</p>
+            <p id="kpiPorVencer" class="text-3xl font-bold text-amber-500 mt-1">--</p>
+            <p class="text-xs text-slate-500 mt-1">Requieren renovación</p>
+          </div>
+
+          <div onclick="cambiarVista('vencidos')" class="bg-white p-5 rounded-2xl shadow-sm border border-rose-200 cursor-pointer hover:border-rose-400 transition-all">
+            <p class="text-xs font-semibold uppercase tracking-wider text-rose-600">Críticos</p>
+            <p id="kpiVencidos" class="text-3xl font-bold text-rose-600 mt-1">--</p>
+            <p class="text-xs text-slate-500 mt-1">Vencidos o faltantes</p>
+          </div>
         </div>
         
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Fila de Gráficos Principales -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <!-- Gráfico 1: Global -->
           <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center">
-            <h3 class="text-lg font-bold text-slate-700 mb-6 w-full text-center">Estado Global de la Flota</h3>
+            <h3 class="text-lg font-bold text-slate-700 mb-4 w-full text-center">Estado Global de la Flota</h3>
             <div class="relative w-full max-w-sm h-72">
               <canvas id="chartGlobal"></canvas>
             </div>
@@ -246,10 +274,21 @@
           
           <!-- Gráfico 2: Por Sucursal -->
           <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center">
-            <h3 class="text-lg font-bold text-slate-700 mb-6 w-full text-center">Rendimiento por Sucursal</h3>
+            <h3 class="text-lg font-bold text-slate-700 mb-4 w-full text-center">Rendimiento por Sucursal</h3>
             <div class="relative w-full h-72">
               <canvas id="chartSucursales"></canvas>
             </div>
+          </div>
+        </div>
+
+        <!-- Gráfico 3: Desglose por Tipo de Documento -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-1">
+            <h3 class="text-lg font-bold text-slate-700">Estado por Tipo de Documento</h3>
+            <span class="text-xs text-slate-400">Distribución sobre el total de la flota (distingue vencidos vs. pendientes de carga)</span>
+          </div>
+          <div class="relative w-full h-64">
+            <canvas id="chartDocumentos"></canvas>
           </div>
         </div>
       </section>

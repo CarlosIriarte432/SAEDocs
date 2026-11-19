@@ -731,53 +731,88 @@ function descargarExcelFlota() {
 // ==========================================
 let chartGlobalInst = null;
 let chartSucursalesInst = null;
+let chartDocumentosInst = null;
+
+function irADirectorioFiltrado(sucursal = 'ALL', estado = 'ALL') {
+  cambiarVista('flota');
+  const selTipo = document.getElementById('filterTipo');
+  const selEstado = document.getElementById('filterEstado');
+  const selSucursal = document.getElementById('filterSucursal');
+
+  if (selTipo) selTipo.value = 'ALL';
+  if (selEstado) selEstado.value = estado;
+  if (selSucursal) selSucursal.value = sucursal;
+
+  renderFleetTree();
+}
 
 function renderEstadisticas() {
   const ctxGlobal = document.getElementById('chartGlobal');
   const ctxSucursales = document.getElementById('chartSucursales');
+  const ctxDocumentos = document.getElementById('chartDocumentos');
   if (!ctxGlobal || !ctxSucursales) return;
 
-  // 1. Datos Globales
+  // 1. Datos Globales + Tarjetas KPI
   const totalAlDia = globalFleetData.alDia.length;
   const totalPorVencer = globalFleetData.porVencer.length;
   const totalVencidos = globalFleetData.vencidos.length;
+  const totalFlota = totalAlDia + totalPorVencer + totalVencidos;
+  const pctCumplimiento = totalFlota > 0 ? Math.round((totalAlDia / totalFlota) * 100) : 0;
+
+  const kpiTotal = document.getElementById('kpiTotalFlota');
+  if (kpiTotal) {
+    kpiTotal.textContent = totalFlota;
+    document.getElementById('kpiCumplimiento').textContent = `${pctCumplimiento}%`;
+    document.getElementById('kpiAlDiaSub').textContent = `${totalAlDia} de ${totalFlota} al día`;
+    document.getElementById('kpiPorVencer').textContent = totalPorVencer;
+    document.getElementById('kpiVencidos').textContent = totalVencidos;
+  }
 
   // Configuración maestra para los números
   const labelConfig = {
     color: '#ffffff',
-    font: { weight: 'bold', size: 14 },
-    textStrokeColor: 'rgba(0,0,0,0.15)', // Borde sutil para que lea bien sobre el amarillo
+    font: { weight: 'bold', size: 13 },
+    textStrokeColor: 'rgba(0,0,0,0.2)',
     textStrokeWidth: 3,
-    formatter: (value) => value > 0 ? value : '' // Ocultamos los ceros para mantenerlo limpio
+    formatter: (value) => value > 0 ? value : ''
   };
 
+  // --- GRÁFICO 1: DONA GLOBAL (Clickeable) ---
   if (chartGlobalInst) chartGlobalInst.destroy();
   chartGlobalInst = new Chart(ctxGlobal, {
     type: 'doughnut',
-    plugins: [ChartDataLabels], // Activamos el plugin en este gráfico
+    plugins: [ChartDataLabels],
     data: {
       labels: ['Al Día', 'Por Vencer', 'Vencidos / Faltantes'],
       datasets: [{
         data: [totalAlDia, totalPorVencer, totalVencidos],
         backgroundColor: ['#10b981', '#fbbf24', '#f43f5e'],
         borderWidth: 0,
-        hoverOffset: 5
+        hoverOffset: 6
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      onHover: (event, elements) => {
+        event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+      },
+      onClick: (event, elements) => {
+        if (!elements.length) return;
+        const vistasPorIndice = ['aldia', 'porvencer', 'vencidos'];
+        cambiarVista(vistasPorIndice[elements[0].index]);
+      },
       plugins: {
         legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } },
-        datalabels: labelConfig // Inyectamos la configuración de números
+        datalabels: labelConfig
       },
-      cutout: '65%' 
+      cutout: '65%'
     }
   });
 
-  // 2. Datos por Sucursal
+  // --- GRÁFICO 2: POR SUCURSAL (Ordenado de mayor a menor + Clickeable) ---
   const sucursalesMap = {};
-  
+
   globalFleetData.alDia.forEach(v => {
     const b = v.branch || 'Coquimbo';
     if (!sucursalesMap[b]) sucursalesMap[b] = { alDia: 0, porVencer: 0, vencidos: 0 };
@@ -794,17 +829,23 @@ function renderEstadisticas() {
     sucursalesMap[b].vencidos++;
   });
 
-  const labels = Object.keys(sucursalesMap);
-  const dataAlDia = labels.map(l => sucursalesMap[l].alDia);
-  const dataPorVencer = labels.map(l => sucursalesMap[l].porVencer);
-  const dataVencidos = labels.map(l => sucursalesMap[l].vencidos);
+  // Ordenar sucursales de mayor a menor volumen total
+  const labelsSuc = Object.keys(sucursalesMap).sort((a, b) => {
+    const totalA = sucursalesMap[a].alDia + sucursalesMap[a].porVencer + sucursalesMap[a].vencidos;
+    const totalB = sucursalesMap[b].alDia + sucursalesMap[b].porVencer + sucursalesMap[b].vencidos;
+    return totalB - totalA;
+  });
+
+  const dataAlDia = labelsSuc.map(l => sucursalesMap[l].alDia);
+  const dataPorVencer = labelsSuc.map(l => sucursalesMap[l].porVencer);
+  const dataVencidos = labelsSuc.map(l => sucursalesMap[l].vencidos);
 
   if (chartSucursalesInst) chartSucursalesInst.destroy();
   chartSucursalesInst = new Chart(ctxSucursales, {
     type: 'bar',
-    plugins: [ChartDataLabels], // Activamos el plugin en este gráfico
+    plugins: [ChartDataLabels],
     data: {
-      labels: labels,
+      labels: labelsSuc,
       datasets: [
         { label: 'Al Día', data: dataAlDia, backgroundColor: '#10b981', borderRadius: 4 },
         { label: 'Por Vencer', data: dataPorVencer, backgroundColor: '#fbbf24', borderRadius: 4 },
@@ -814,13 +855,82 @@ function renderEstadisticas() {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      onHover: (event, elements) => {
+        event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+      },
+      onClick: (event, elements) => {
+        if (!elements.length) return;
+        const sucursalElegida = labelsSuc[elements[0].index];
+        irADirectorioFiltrado(sucursalElegida, 'ALL');
+      },
       scales: {
         x: { stacked: true, grid: { display: false } },
         y: { stacked: true, border: { display: false } }
       },
       plugins: {
         legend: { display: false },
-        datalabels: labelConfig // Inyectamos la configuración de números
+        datalabels: labelConfig
+      }
+    }
+  });
+
+  // --- GRÁFICO 3: DESGLOSE POR TIPO DE DOCUMENTO ---
+  if (!ctxDocumentos) return;
+
+  const todosVehiculos = [
+    ...globalFleetData.alDia,
+    ...globalFleetData.porVencer,
+    ...globalFleetData.vencidos
+  ];
+
+  // Mapeo tolerante a los nombres exactos que devuelve v.alerts en el backend
+  const docDefinitions = [
+    { label: 'SOAP', keys: ['SOAP'] },
+    { label: 'Revisión Técnica', keys: ['Rev. Técnica', 'Revisión Técnica'] },
+    { label: 'Permiso de Circulación', keys: ['Permiso de circulación', 'Permiso de Circulación'] },
+    { label: 'Padrón', keys: ['Padrón'] }
+  ];
+
+  const docStats = docDefinitions.map(def => {
+    let alDia = 0, porVencer = 0, vencido = 0, faltante = 0;
+
+    todosVehiculos.forEach(v => {
+      const alerts = v.alerts || {};
+      const match = (arr) => Array.isArray(arr) && def.keys.some(k => arr.includes(k));
+
+      if (match(alerts.missing)) faltante++;
+      else if (match(alerts.expired)) vencido++;
+      else if (match(alerts.expiring)) porVencer++;
+      else alDia++;
+    });
+
+    return { label: def.label, alDia, porVencer, vencido, faltante };
+  });
+
+  if (chartDocumentosInst) chartDocumentosInst.destroy();
+  chartDocumentosInst = new Chart(ctxDocumentos, {
+    type: 'bar',
+    plugins: [ChartDataLabels],
+    data: {
+      labels: docStats.map(d => d.label),
+      datasets: [
+        { label: 'Al Día', data: docStats.map(d => d.alDia), backgroundColor: '#10b981', borderRadius: 4 },
+        { label: 'Por Vencer', data: docStats.map(d => d.porVencer), backgroundColor: '#fbbf24', borderRadius: 4 },
+        { label: 'Vencido', data: docStats.map(d => d.vencido), backgroundColor: '#f43f5e', borderRadius: 4 },
+        { label: 'Faltante (Sin subir)', data: docStats.map(d => d.faltante), backgroundColor: '#94a3b8', borderRadius: 4 }
+      ]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { stacked: true, grid: { color: '#f1f5f9' }, border: { display: false } },
+        y: { stacked: true, grid: { display: false }, border: { display: false } }
+      },
+      plugins: {
+        legend: { position: 'bottom', labels: { usePointStyle: true, padding: 16 } },
+        datalabels: labelConfig
       }
     }
   });
