@@ -38,9 +38,8 @@ document.getElementById('searchForm').addEventListener('submit', async (e) => {
   const errorMsg = document.getElementById('errorMsg');
   
   errorMsg.classList.add('hidden');
-  document.getElementById('multiDashboardContainer').innerHTML = ''; // Limpiamos la pantalla
+  document.getElementById('multiDashboardContainer').innerHTML = '';
   
-  // Cortamos por comas, quitamos espacios y eliminamos vacíos
   const plates = rawInput.split(',').map(p => p.trim().toUpperCase()).filter(p => p !== '');
   if (plates.length === 0) return;
 
@@ -49,7 +48,6 @@ document.getElementById('searchForm').addEventListener('submit', async (e) => {
     btn.innerHTML = 'Buscando... ⏳';
     btn.disabled = true;
 
-    // Disparamos peticiones en paralelo usando el AppConfig automático
     const fetchPromises = plates.map(plate => 
       fetch(AppConfig.URL_SEARCH(plate)).then(res => res.json())
     );
@@ -95,7 +93,6 @@ document.getElementById('searchForm').addEventListener('submit', async (e) => {
 function renderMultipleDashboards(vehiclesArray) {
   const container = document.getElementById('multiDashboardContainer');
   
-  // Guardamos datos globalmente por si necesitan descargar ZIP
   if (!window.vehiculosBuscados) window.vehiculosBuscados = {};
 
   const canUpload = currentUserRole === 'admin' || currentUserRole === 'user';
@@ -113,7 +110,6 @@ function renderMultipleDashboards(vehiclesArray) {
           </button>`
       : '';
 
-    // HTML del Camión
     dashWrapper.innerHTML = `
       <div class="bg-slate-50 border-b border-slate-200 p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -307,9 +303,9 @@ let editingDocId = null; // null = Nuevo documento | número = Editando document
 const datePickerInst = typeof flatpickr !== 'undefined'
   ? flatpickr('#expirationDate', {
       locale: 'es',
-      dateFormat: 'Y-m-d', // Formato interno que recibe el backend
-      altInput: true,      // Campo visual en formato chileno
-      altFormat: 'd/m/Y',  // Siempre dd/mm/aaaa en cualquier navegador
+      dateFormat: 'Y-m-d',
+      altInput: true,
+      altFormat: 'd/m/Y',
       altInputClass: 'w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none bg-white text-slate-800',
       allowInput: true
     })
@@ -424,7 +420,14 @@ uploadForm.addEventListener('submit', async (e) => {
       body: formData
     });
 
-    const result = await response.json();
+    const rawText = await response.text();
+    let result;
+    try {
+      result = JSON.parse(rawText);
+    } catch {
+      throw new Error(`Error del servidor (${response.status}): revisa la consola del backend.`);
+    }
+
     if (!response.ok) throw new Error(result.error || 'Error al procesar el documento');
 
     uploadFeedback.textContent = editingDocId
@@ -471,7 +474,6 @@ async function descargarCarpetaZIP(plate, btnElement) {
     const folderName = `SAE_${plate}`;
     const folder = zip.folder(folderName);
     
-    // Obtenemos los docs de este camión desde la memoria global
     const vehicleDocs = window.vehiculosBuscados[plate] || [];
     
     const groupedDocs = {};
@@ -549,7 +551,6 @@ async function loadDashboardStats() {
   try {
     const token = localStorage.getItem('saedocs_token');
     
-    // Usamos AppConfig para apuntar automáticamente a la URL correcta
     const response = await fetch(AppConfig.URL_STATS, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -600,10 +601,8 @@ function renderDashboardTable(containerId, vehicles, colorBorder) {
   `;
 
   vehicles.forEach(v => {
-    // 1. Por defecto, preparamos la Marca (Para la tabla "Al Día")
     let columnContent = v.brand || 'Sin Marca';
     
-    // 2. PERO si es tabla de alerta, SOBRESCRIBIMOS la marca con los documentos faltantes/vencidos
     if (isAlertTable) {
       if (containerId === 'vista-vencidos') {
         let parts = [];
@@ -762,7 +761,6 @@ function descargarExcelFlota() {
   const aplicarColoresYFormato = (worksheet) => {
     const range = XLSX.utils.decode_range(worksheet['!ref']);
     
-    // 1. Pintar la Cabecera (Fondo oscuro, texto blanco)
     for (let C = range.s.c; C <= range.e.c; ++C) {
       const cell_ref = XLSX.utils.encode_cell({ c: C, r: 0 });
       if (worksheet[cell_ref]) {
@@ -774,7 +772,6 @@ function descargarExcelFlota() {
       }
     }
 
-    // 2. Pintar los estados según el texto
     for (let R = 1; R <= range.e.r; ++R) {
       for (let C = range.s.c; C <= range.e.c; ++C) {
         const cell_ref = XLSX.utils.encode_cell({ c: C, r: R });
@@ -805,7 +802,6 @@ function descargarExcelFlota() {
       }
     }
     
-    // 3. Ensanchar las columnas
     worksheet['!cols'] = [
       { wch: 12 },
       { wch: 15 },
@@ -879,7 +875,6 @@ function renderEstadisticas() {
     document.getElementById('kpiVencidos').textContent = totalVencidos;
   }
 
-  // Configuración maestra para los números
   const labelConfig = {
     color: '#ffffff',
     font: { weight: 'bold', size: 13 },
@@ -940,7 +935,6 @@ function renderEstadisticas() {
     sucursalesMap[b].vencidos++;
   });
 
-  // Ordenar sucursales de mayor a menor volumen total
   const labelsSuc = Object.keys(sucursalesMap).sort((a, b) => {
     const totalA = sucursalesMap[a].alDia + sucursalesMap[a].porVencer + sucursalesMap[a].vencidos;
     const totalB = sucursalesMap[b].alDia + sucursalesMap[b].porVencer + sucursalesMap[b].vencidos;
@@ -994,7 +988,6 @@ function renderEstadisticas() {
     ...globalFleetData.vencidos
   ];
 
-  // Mapeo tolerante a los nombres exactos que devuelve v.alerts en el backend
   const docDefinitions = [
     { label: 'SOAP', keys: ['SOAP'] },
     { label: 'Revisión Técnica', keys: ['Rev. Técnica', 'Revisión Técnica'] },
