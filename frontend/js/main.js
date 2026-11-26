@@ -282,10 +282,14 @@ const uploadForm = document.getElementById('uploadForm');
 const uploadFeedback = document.getElementById('uploadFeedback');
 const uploadSubmitBtn = document.getElementById('uploadSubmitBtn');
 
+let currentModalPlate = '';
+
 function abrirModalSubida(vehId, plate) {
   if (currentUserRole !== 'admin' && currentUserRole !== 'user') return;
+  currentModalPlate = plate.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
   document.getElementById('modalVehicleId').value = vehId;
   document.querySelector('#uploadModal h3').textContent = `Subir Documento - ${plate}`;
+  document.getElementById('aiStatusBox')?.classList.add('hidden');
   uploadModal.classList.remove('hidden');
 }
 
@@ -293,6 +297,70 @@ closeModalBtn.addEventListener('click', () => {
   uploadModal.classList.add('hidden');
   uploadForm.reset();
   uploadFeedback.classList.add('hidden');
+  document.getElementById('aiStatusBox').classList.add('hidden');
+  document.getElementById('expirationDateContainer').classList.remove('hidden');
+});
+
+// Análisis automático al seleccionar un archivo
+document.getElementById('fileInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  const aiStatusBox = document.getElementById('aiStatusBox');
+
+  if (!file) {
+    aiStatusBox.classList.add('hidden');
+    return;
+  }
+
+  aiStatusBox.className = 'mt-2 text-xs font-medium px-3 py-2 rounded-lg border bg-blue-50 border-blue-200 text-blue-700';
+  aiStatusBox.textContent = 'Analizando documento...';
+  aiStatusBox.classList.remove('hidden');
+
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const token = localStorage.getItem('saedocs_token');
+    const response = await fetch(AppConfig.URL_DOCS_ANALYZE, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData
+    });
+
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || 'No se pudo leer el archivo');
+    }
+
+    const { plate, document_type_id, expiration_date } = result.data;
+
+    // 1. Autocompletar tipo de documento (y disparar el evento para ocultar fecha si es Padrón)
+    if (document_type_id) {
+      const docSelect = document.getElementById('docTypeSelect');
+      docSelect.value = String(document_type_id);
+      docSelect.dispatchEvent(new Event('change'));
+    }
+
+    // 2. Autocompletar fecha de vencimiento
+    if (expiration_date && document_type_id !== 4) {
+      document.getElementById('expirationDate').value = expiration_date;
+    }
+
+    // 3. Validar coincidencia de patente
+    if (plate && plate !== currentModalPlate) {
+      aiStatusBox.className = 'mt-2 text-xs font-semibold px-3 py-2 rounded-lg border bg-rose-50 border-rose-200 text-rose-700';
+      aiStatusBox.textContent = `⚠️ Atención: El documento parece ser de la patente ${plate} (estás subiendo a ${currentModalPlate}).`;
+    } else if (plate === currentModalPlate) {
+      aiStatusBox.className = 'mt-2 text-xs font-semibold px-3 py-2 rounded-lg border bg-emerald-50 border-emerald-200 text-emerald-700';
+      aiStatusBox.textContent = `✓ Patente ${plate} verificada y campos autocompletados.`;
+    } else {
+      aiStatusBox.className = 'mt-2 text-xs font-medium px-3 py-2 rounded-lg border bg-amber-50 border-amber-200 text-amber-800';
+      aiStatusBox.textContent = 'Campos completados. Verifica la patente manualmente antes de subir.';
+    }
+
+  } catch (error) {
+    aiStatusBox.className = 'mt-2 text-xs font-medium px-3 py-2 rounded-lg border bg-slate-100 border-slate-200 text-slate-600';
+    aiStatusBox.textContent = 'No se pudo autocompletar. Puedes llenar los datos manualmente y subir igual.';
+  }
 });
 
 uploadForm.addEventListener('submit', async (e) => {

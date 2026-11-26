@@ -17,6 +17,7 @@ const AppConfig = (() => {
     URL_ADMIN: `${API_BASE_URL}/admin/vehicles`,
     URL_DOCS_UPLOAD: `${API_BASE_URL}/documents/upload`,
     URL_STATS: `${API_BASE_URL}/vehicles/dashboard-stats`,
-    URL_SEARCH: (plate) => `${API_BASE_URL}/vehicles/${plate}`
+    URL_SEARCH: (plate) => `${API_BASE_URL}/vehicles/${plate}`,
+    URL_DOCS_ANALYZE: `${API_BASE_URL}/documents/analyze`,
   };
 })();
