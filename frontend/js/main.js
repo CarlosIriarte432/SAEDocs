@@ -4,6 +4,12 @@
 let globalFleetData = { alDia: [], porVencer: [], vencidos: [] };
 let currentUserRole = 'lector'; // Por defecto restrictivo hasta validar el usuario
 const DOC_TYPES = ['SOAP', 'Revisión Técnica', 'Permiso de Circulación', 'Padrón'];
+const DOC_TYPE_IDS = {
+  'SOAP': '1',
+  'Revisión Técnica': '2',
+  'Permiso de Circulación': '3',
+  'Padrón': '4'
+};
 
 // Inicialización
 document.addEventListener('DOMContentLoaded', () => {
@@ -209,10 +215,10 @@ function createDocCard(doc, typeName, isLatest) {
   let expText = 'No aplica';
 
   if (typeName !== 'Padrón' && doc.expiration_date) {
-    const expDate = new Date(doc.expiration_date);
+    const [y, m, d] = String(doc.expiration_date).split('T')[0].split('-');
+    const expDate = new Date(Number(y), Number(m) - 1, Number(d));
     const today = new Date();
-    today.setHours(0,0,0,0);
-    expDate.setHours(0,0,0,0);
+    today.setHours(0, 0, 0, 0);
     const diffTime = expDate - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
@@ -227,9 +233,12 @@ function createDocCard(doc, typeName, isLatest) {
     }
   }
 
+  const canEdit = currentUserRole === 'admin' || currentUserRole === 'user';
+  const isoDate = doc.expiration_date ? String(doc.expiration_date).split('T')[0] : '';
+
   const card = document.createElement('div');
   if (isLatest) {
-    card.className = `p-5 rounded-xl border shadow-sm ${statusConfig.color} flex flex-col justify-between transition-all h-48`;
+    card.className = `p-5 rounded-xl border shadow-sm ${statusConfig.color} flex flex-col justify-between transition-all min-h-48`;
     card.innerHTML = `
       <div class="flex justify-between items-start mb-2">
         <h3 class="font-bold text-lg leading-tight pr-2">${typeName}</h3>
@@ -237,9 +246,16 @@ function createDocCard(doc, typeName, isLatest) {
       </div>
       <div class="mt-auto space-y-1">
         <p class="text-[13px] opacity-80">Actualizado: <span class="font-semibold">${uploadDate}</span></p>
-        ${typeName !== 'Padrón' ? `<p class="text-sm opacity-90">Vence: <span class="font-bold">${expText}</span></p>` : `<p class="text-sm opacity-90 font-bold">Documento Permanente</p>`}
-        <div class="pt-2">
-           <a href="${doc.cloudinary_url}" target="_blank" class="text-sm font-bold underline underline-offset-2 opacity-90 hover:opacity-100 flex items-center gap-1">Ver Archivo →</a>
+        ${typeName !== 'Padrón'
+          ? `<p class="text-sm opacity-90">Vence: <span class="font-bold">${expText}</span></p>`
+          : `<p class="text-sm opacity-90 font-bold">Documento Permanente</p>`
+        }
+        <div class="pt-3 mt-1 border-t border-current/10 flex items-center justify-between gap-2">
+          <a href="${doc.cloudinary_url}" target="_blank" class="text-xs font-bold underline underline-offset-2 opacity-90 hover:opacity-100 whitespace-nowrap">Ver Archivo →</a>
+          ${canEdit && doc.doc_id
+            ? `<button onclick="abrirModalEdicion(${doc.doc_id}, '${doc.plate}', '${typeName}', '${isoDate}')" class="text-xs font-semibold underline underline-offset-2 opacity-75 hover:opacity-100 whitespace-nowrap">Editar documento</button>`
+            : ''
+          }
         </div>
       </div>
     `;
@@ -274,85 +290,170 @@ function createEmptyCard(typeName) {
 }
 
 // ==========================================
-// LÓGICA DE SUBIDA DE ARCHIVOS Y MODAL
+// LÓGICA DE SUBIDA / EDICIÓN EN EL MISMO MODAL
 // ==========================================
 const uploadModal = document.getElementById('uploadModal');
 const closeModalBtn = document.getElementById('closeModalBtn');
 const uploadForm = document.getElementById('uploadForm');
 const uploadFeedback = document.getElementById('uploadFeedback');
 const uploadSubmitBtn = document.getElementById('uploadSubmitBtn');
+const docTypeSelect = document.getElementById('docTypeSelect');
+const expirationDateInput = document.getElementById('expirationDate');
+const expirationDateContainer = document.getElementById('expirationDateContainer');
+const fileInput = document.getElementById('fileInput');
+
+let editingDocId = null; // null = Nuevo documento | número = Editando documento existente
+
+const datePickerInst = typeof flatpickr !== 'undefined'
+  ? flatpickr('#expirationDate', {
+      locale: 'es',
+      dateFormat: 'Y-m-d', // Formato interno que recibe el backend
+      altInput: true,      // Campo visual en formato chileno
+      altFormat: 'd/m/Y',  // Siempre dd/mm/aaaa en cualquier navegador
+      altInputClass: 'w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none bg-white text-slate-800',
+      allowInput: true
+    })
+  : null;
+
+function setModalExpirationDate(isoDate) {
+  if (datePickerInst) {
+    if (isoDate) datePickerInst.setDate(isoDate, true, 'Y-m-d');
+    else datePickerInst.clear();
+  } else {
+    expirationDateInput.value = isoDate || '';
+  }
+}
 
 function abrirModalSubida(vehId, plate) {
   if (currentUserRole !== 'admin' && currentUserRole !== 'user') return;
+
+  editingDocId = null;
+  uploadForm.reset();
+  setModalExpirationDate('');
   document.getElementById('modalVehicleId').value = vehId;
   document.querySelector('#uploadModal h3').textContent = `Subir Documento - ${plate}`;
+
+  docTypeSelect.disabled = false;
+  fileInput.required = true;
+  expirationDateContainer.classList.remove('hidden');
+  uploadSubmitBtn.innerHTML = 'Confirmar y Subir';
+  uploadFeedback.classList.add('hidden');
+
+  uploadModal.classList.remove('hidden');
+}
+
+function abrirModalEdicion(docId, plate, typeName, isoDate) {
+  if (currentUserRole !== 'admin' && currentUserRole !== 'user') return;
+
+  editingDocId = docId;
+  uploadForm.reset();
+  document.querySelector('#uploadModal h3').textContent = `Editar ${typeName} - ${plate}`;
+
+  const typeId = DOC_TYPE_IDS[typeName] || '1';
+  docTypeSelect.value = typeId;
+  docTypeSelect.disabled = true;
+
+  if (typeId === '4') {
+    expirationDateContainer.classList.add('hidden');
+    setModalExpirationDate('');
+  } else {
+    expirationDateContainer.classList.remove('hidden');
+    setModalExpirationDate(isoDate);
+  }
+
+  fileInput.required = false;
+  uploadSubmitBtn.innerHTML = 'Guardar Cambios';
+
+  uploadFeedback.textContent = 'Deja el archivo vacío si solo deseas corregir la fecha.';
+  uploadFeedback.className = 'text-xs font-medium text-slate-500 text-center mt-3 block';
+
   uploadModal.classList.remove('hidden');
 }
 
 closeModalBtn.addEventListener('click', () => {
+  editingDocId = null;
   uploadModal.classList.add('hidden');
   uploadForm.reset();
+  setModalExpirationDate('');
+  docTypeSelect.disabled = false;
+  fileInput.required = true;
+  expirationDateContainer.classList.remove('hidden');
   uploadFeedback.classList.add('hidden');
 });
 
 uploadForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   uploadSubmitBtn.disabled = true;
-  uploadSubmitBtn.innerHTML = 'Subiendo... ⏳';
+  uploadSubmitBtn.innerHTML = editingDocId ? 'Guardando... ⏳' : 'Subiendo... ⏳';
   uploadFeedback.classList.add('hidden');
 
+  const token = localStorage.getItem('saedocs_token');
   const formData = new FormData();
-  formData.append('vehicle_id', document.getElementById('modalVehicleId').value);
-  formData.append('document_type_id', document.getElementById('docTypeSelect').value);
-  formData.append('file', document.getElementById('fileInput').files[0]);
-  
-  // Buscamos el usuario y nos aseguramos de que si no tiene ID, envíe un 1
-  const user = JSON.parse(localStorage.getItem('saedocs_user'));
-  formData.append('uploaded_by', user?.id || 1);
-
-  const expDate = document.getElementById('expirationDate').value;
-  if (expDate) formData.append('expiration_date', expDate);
+  const expDate = expirationDateInput.value;
+  const selectedFile = fileInput.files[0];
 
   try {
-    const token = localStorage.getItem('saedocs_token');
-    // Usamos AppConfig para detectar la ruta automáticamente y enviamos el token
-    const response = await fetch(AppConfig.URL_DOCS_UPLOAD, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      },
-      body: formData 
+    let url;
+    let method;
+
+    if (editingDocId) {
+      if (!expDate && !selectedFile) {
+        throw new Error('Debes modificar la fecha o seleccionar un archivo nuevo.');
+      }
+      if (expDate) formData.append('expiration_date', expDate);
+      if (selectedFile) formData.append('file', selectedFile);
+
+      url = AppConfig.URL_DOC_UPDATE(editingDocId);
+      method = 'PUT';
+    } else {
+      formData.append('vehicle_id', document.getElementById('modalVehicleId').value);
+      formData.append('document_type_id', docTypeSelect.value);
+      formData.append('file', selectedFile);
+
+      const user = JSON.parse(localStorage.getItem('saedocs_user'));
+      formData.append('uploaded_by', user?.id || 1);
+      if (expDate) formData.append('expiration_date', expDate);
+
+      url = AppConfig.URL_DOCS_UPLOAD;
+      method = 'POST';
+    }
+
+    const response = await fetch(url, {
+      method,
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData
     });
 
     const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'Error al subir documento');
+    if (!response.ok) throw new Error(result.error || 'Error al procesar el documento');
 
-    uploadFeedback.textContent = '¡Documento subido con éxito!';
+    uploadFeedback.textContent = editingDocId
+      ? '¡Documento actualizado con éxito!'
+      : '¡Documento subido con éxito!';
     uploadFeedback.className = 'text-sm font-bold text-emerald-600 text-center mt-3 block';
-    
+
     setTimeout(() => {
       closeModalBtn.click();
-      document.getElementById('searchForm').dispatchEvent(new Event('submit')); // Re-renderiza la búsqueda
-    }, 1000);
+      document.getElementById('searchForm').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    }, 900);
 
-    loadDashboardStats(); // Actualiza el semáforo y las vistas
+    loadDashboardStats();
 
   } catch (error) {
     uploadFeedback.textContent = error.message;
     uploadFeedback.className = 'text-sm font-bold text-rose-600 text-center mt-3 block';
   } finally {
     uploadSubmitBtn.disabled = false;
-    uploadSubmitBtn.innerHTML = 'Confirmar y Subir';
+    uploadSubmitBtn.innerHTML = editingDocId ? 'Guardar Cambios' : 'Confirmar y Subir';
   }
 });
 
-document.getElementById('docTypeSelect').addEventListener('change', (e) => {
-  const dateContainer = document.getElementById('expirationDateContainer');
-  if (e.target.value === '4') { // Si es Padrón
-    dateContainer.classList.add('hidden');
-    document.getElementById('expirationDate').value = ''; 
+docTypeSelect.addEventListener('change', (e) => {
+  if (e.target.value === '4') {
+    expirationDateContainer.classList.add('hidden');
+    setModalExpirationDate('');
   } else {
-    dateContainer.classList.remove('hidden');
+    expirationDateContainer.classList.remove('hidden');
   }
 });
 
@@ -612,7 +713,7 @@ document.getElementById('filterEstado')?.addEventListener('change', renderFleetT
 document.getElementById('filterSucursal')?.addEventListener('change', renderFleetTree);
 
 // ==========================================
-// EXPORTAR REPORTE EXCEL DEL DIRECTORIO (A PRUEBA DE WEONES 🎨)
+// EXPORTAR REPORTE EXCEL DEL DIRECTORIO
 // ==========================================
 function descargarExcelFlota() {
   const todosLosVehiculos = [
@@ -658,7 +759,6 @@ function descargarExcelFlota() {
     };
   });
 
-  // 🎨 FUNCIÓN MÁGICA PARA PINTAR LAS CELDAS Y DAR FORMATO
   const aplicarColoresYFormato = (worksheet) => {
     const range = XLSX.utils.decode_range(worksheet['!ref']);
     
@@ -667,8 +767,8 @@ function descargarExcelFlota() {
       const cell_ref = XLSX.utils.encode_cell({ c: C, r: 0 });
       if (worksheet[cell_ref]) {
         worksheet[cell_ref].s = {
-          fill: { fgColor: { rgb: "FF0F172A" } }, // Gris muy oscuro (Slate 900)
-          font: { bold: true, color: { rgb: "FFFFFFFF" } }, // Blanco
+          fill: { fgColor: { rgb: "FF0F172A" } },
+          font: { bold: true, color: { rgb: "FFFFFFFF" } },
           alignment: { horizontal: "center", vertical: "center" }
         };
       }
@@ -685,13 +785,12 @@ function descargarExcelFlota() {
         let bgColor = null;
         let textColor = "FF000000";
 
-        // Asignamos colores ARGB (Alpha, Red, Green, Blue)
         if (cell.v === "Al día") { 
-          bgColor = "FFDCFCE7"; textColor = "FF166534"; // Fondo verde pastel, texto verde oscuro
+          bgColor = "FFDCFCE7"; textColor = "FF166534";
         } else if (cell.v === "Por Vencer") { 
-          bgColor = "FFFEF08A"; textColor = "FF854D0E"; // Fondo amarillo pastel, texto café/amarillo oscuro
+          bgColor = "FFFEF08A"; textColor = "FF854D0E";
         } else if (cell.v === "Vencido" || cell.v === "Faltante") { 
-          bgColor = "FFFECACA"; textColor = "FF991B1B"; // Fondo rojo pastel, texto rojo oscuro
+          bgColor = "FFFECACA"; textColor = "FF991B1B";
         }
 
         if (bgColor) {
@@ -701,20 +800,19 @@ function descargarExcelFlota() {
             alignment: { horizontal: "center", vertical: "center" }
           };
         } else {
-          // Centrar el texto de las patentes y tipos que no llevan color de alerta
           cell.s = { alignment: { horizontal: "center", vertical: "center" } };
         }
       }
     }
     
-    // 3. Ensanchar las columnas para que no se corte el texto
+    // 3. Ensanchar las columnas
     worksheet['!cols'] = [
-      { wch: 12 }, // Patente
-      { wch: 15 }, // Tipo
-      { wch: 18 }, // SOAP
-      { wch: 18 }, // Rev. Técnica
-      { wch: 22 }, // Permiso Circulación
-      { wch: 18 }  // Padrón
+      { wch: 12 },
+      { wch: 15 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 22 },
+      { wch: 18 }
     ];
   };
 
@@ -722,7 +820,7 @@ function descargarExcelFlota() {
     const vehiculosSucursal = todosLosVehiculos.filter(v => (v.branch || 'Coquimbo') === sucursal);
     if (vehiculosSucursal.length > 0) {
       const worksheet = XLSX.utils.json_to_sheet(armarFilas(vehiculosSucursal));
-      aplicarColoresYFormato(worksheet); // Aplicamos pintura antes de inyectar la pestaña
+      aplicarColoresYFormato(worksheet);
       XLSX.utils.book_append_sheet(workbook, worksheet, sucursal);
     }
     sucursalesProcesadas.add(sucursal);

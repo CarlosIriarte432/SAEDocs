@@ -100,12 +100,10 @@ const getDashboardStats = async (req, res) => {
         if (docType === '4') return; // Padrón no vence
 
         if (docRecord.date) {
-          const expDate = new Date(docRecord.date);
-          expDate.setHours(0, 0, 0, 0);
+          const [y, m, d] = String(docRecord.date).split('T')[0].split('-');
+          const expDate = new Date(Number(y), Number(m) - 1, Number(d));
           if (expDate <= today) expired.push(docName);
           else if (expDate <= thirtyDaysFromNow) expiring.push(docName);
-        } else {
-          missing.push(docName);
         }
       });
 

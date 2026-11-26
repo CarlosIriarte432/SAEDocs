@@ -6,10 +6,10 @@ const db = require('../config/db');
 
 async function createUser() {
   // 👇 Edita estos 4 datos antes de correr el script
-  const name = 'Sebastian Carvajal';
-  const email = 'scr@sae.cl';
-  const plainPassword = 'scr123';
-  const role = 'lector'; // 'admin' o 'operator' (cualquier rol distinto de 'admin' queda sin acceso a admin.html)
+  const name = '';
+  const email = '';
+  const plainPassword = '';
+  const role = ''; // 'admin' o 'operator' (cualquier rol distinto de 'admin' queda sin acceso a admin.html)
 
   try {
     const hashedPassword = await bcrypt.hash(plainPassword, 10);
