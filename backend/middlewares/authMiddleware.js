@@ -24,4 +24,16 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
-module.exports = { verifyToken, requireAdmin };
+// Agrega esto debajo de requireAdmin en backend/middlewares/authMiddleware.js
+const requireUploader = (req, res, next) => {
+  const allowedRoles = ['admin', 'user'];
+  if (!req.user || !allowedRoles.includes(req.user.role)) {
+    return res.status(403).json({
+      success: false,
+      error: 'Acceso denegado: tu perfil es de solo lectura.'
+    });
+  }
+  next();
+};
+
+module.exports = { verifyToken, requireAdmin, requireUploader };

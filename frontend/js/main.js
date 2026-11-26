@@ -2,6 +2,7 @@
 // Variables Globales
 // ==========================================
 let globalFleetData = { alDia: [], porVencer: [], vencidos: [] };
+let currentUserRole = 'lector'; // Por defecto restrictivo hasta validar el usuario
 const DOC_TYPES = ['SOAP', 'Revisión Técnica', 'Permiso de Circulación', 'Padrón'];
 
 // Inicialización
@@ -9,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const storedUser = localStorage.getItem('saedocs_user');
   if (storedUser) {
     const user = JSON.parse(storedUser);
+    currentUserRole = user.role || 'lector';
     document.getElementById('navUserName').textContent = user.name;
     if (user.role === 'admin' && document.getElementById('adminPanelBtn')) {
       document.getElementById('adminPanelBtn').classList.remove('hidden');
@@ -90,6 +92,8 @@ function renderMultipleDashboards(vehiclesArray) {
   // Guardamos datos globalmente por si necesitan descargar ZIP
   if (!window.vehiculosBuscados) window.vehiculosBuscados = {};
 
+  const canUpload = currentUserRole === 'admin' || currentUserRole === 'user';
+
   vehiclesArray.forEach((vehicleDocs, index) => {
     const vehicle = vehicleDocs[0];
     window.vehiculosBuscados[vehicle.plate] = vehicleDocs;
@@ -97,6 +101,12 @@ function renderMultipleDashboards(vehiclesArray) {
     const dashWrapper = document.createElement('div');
     dashWrapper.className = 'opacity-0 translate-y-4 transition-all duration-500 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden';
     
+    const uploadBtnHtml = canUpload
+      ? `<button onclick="abrirModalSubida(${vehicle.id}, '${vehicle.plate}')" class="bg-blue-50 text-blue-700 border border-blue-200 px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors shadow-sm w-full sm:w-auto">
+            + Nuevo Documento
+          </button>`
+      : '';
+
     // HTML del Camión
     dashWrapper.innerHTML = `
       <div class="bg-slate-50 border-b border-slate-200 p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -105,9 +115,7 @@ function renderMultipleDashboards(vehiclesArray) {
           <p class="text-slate-500 font-medium">${vehicle.type} • ${vehicle.brand || 'Sin Marca'} • <span class="text-slate-700">${vehicle.branch || 'Coquimbo'}</span></p>
         </div>
         <div class="flex gap-3 w-full sm:w-auto">
-          <button onclick="abrirModalSubida(${vehicle.id}, '${vehicle.plate}')" class="bg-blue-50 text-blue-700 border border-blue-200 px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors shadow-sm w-full sm:w-auto">
-            + Nuevo Documento
-          </button>
+          ${uploadBtnHtml}
           <button onclick="descargarCarpetaZIP('${vehicle.plate}', this)" class="bg-slate-900 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-slate-800 transition-colors shadow-sm flex items-center justify-center gap-2 w-full sm:w-auto">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
             Descargar
@@ -275,6 +283,7 @@ const uploadFeedback = document.getElementById('uploadFeedback');
 const uploadSubmitBtn = document.getElementById('uploadSubmitBtn');
 
 function abrirModalSubida(vehId, plate) {
+  if (currentUserRole !== 'admin' && currentUserRole !== 'user') return;
   document.getElementById('modalVehicleId').value = vehId;
   document.querySelector('#uploadModal h3').textContent = `Subir Documento - ${plate}`;
   uploadModal.classList.remove('hidden');
@@ -305,9 +314,13 @@ uploadForm.addEventListener('submit', async (e) => {
   if (expDate) formData.append('expiration_date', expDate);
 
   try {
-    // Usamos AppConfig para detectar la ruta automáticamente
+    const token = localStorage.getItem('saedocs_token');
+    // Usamos AppConfig para detectar la ruta automáticamente y enviamos el token
     const response = await fetch(AppConfig.URL_DOCS_UPLOAD, {
       method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
       body: formData 
     });
 
@@ -911,7 +924,6 @@ function renderEstadisticas() {
   chartDocumentosInst = new Chart(ctxDocumentos, {
     type: 'bar',
     plugins: [ChartDataLabels],
-    
     data: {
       labels: docStats.map(d => d.label),
       datasets: [
