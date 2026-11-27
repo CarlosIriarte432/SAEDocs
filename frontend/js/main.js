@@ -94,16 +94,35 @@ function renderMultipleDashboards(vehiclesArray) {
   const container = document.getElementById('multiDashboardContainer');
   
   if (!window.vehiculosBuscados) window.vehiculosBuscados = {};
+  if (!window.vehiculosGps) window.vehiculosGps = {};
 
   const canUpload = currentUserRole === 'admin' || currentUserRole === 'user';
 
   vehiclesArray.forEach((vehicleDocs, index) => {
     const vehicle = vehicleDocs[0];
     window.vehiculosBuscados[vehicle.plate] = vehicleDocs;
+
+    // Buscamos el Certificado GPS más reciente de esta patente (si existe)
+    const gpsDocs = vehicleDocs.filter(row => row.document_name === 'Certificado GPS' && row.cloudinary_url);
+    const latestGps = gpsDocs.length > 0 ? gpsDocs[0] : null;
+    window.vehiculosGps[vehicle.plate] = {
+      vehicleId: vehicle.id,
+      plate: vehicle.plate,
+      doc: latestGps
+    };
     
     const dashWrapper = document.createElement('div');
     dashWrapper.className = 'opacity-0 translate-y-4 transition-all duration-500 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden';
     
+    const gpsBtnHtml = `
+      <button onclick="manejarBotonCertificadoGPS('${vehicle.plate}', this)" class="bg-blue-50/60 text-blue-700 border border-blue-200 px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors shadow-sm flex items-center justify-center gap-2 w-full sm:w-auto">
+        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+        </svg>
+        Certificado GPS
+      </button>
+    `;
+
     const uploadBtnHtml = canUpload
       ? `<button onclick="abrirModalSubida(${vehicle.id}, '${vehicle.plate}')" class="bg-blue-50 text-blue-700 border border-blue-200 px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors shadow-sm w-full sm:w-auto">
             + Nuevo Documento
@@ -116,7 +135,8 @@ function renderMultipleDashboards(vehiclesArray) {
           <h2 class="text-3xl font-title text-slate-900 mb-1">Patente: ${vehicle.plate}</h2>
           <p class="text-slate-500 font-medium">${vehicle.type} • ${vehicle.brand || 'Sin Marca'} • <span class="text-slate-700">${vehicle.branch || 'Coquimbo'}</span></p>
         </div>
-        <div class="flex gap-3 w-full sm:w-auto">
+        <div class="flex flex-wrap gap-3 w-full sm:w-auto">
+          ${gpsBtnHtml}
           ${uploadBtnHtml}
           <button onclick="descargarCarpetaZIP('${vehicle.plate}', this)" class="bg-slate-900 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-slate-800 transition-colors shadow-sm flex items-center justify-center gap-2 w-full sm:w-auto">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
@@ -298,7 +318,7 @@ const expirationDateInput = document.getElementById('expirationDate');
 const expirationDateContainer = document.getElementById('expirationDateContainer');
 const fileInput = document.getElementById('fileInput');
 
-let editingDocId = null; // null = Nuevo documento | número = Editando documento existente
+let editingDocId = null;
 
 const datePickerInst = typeof flatpickr !== 'undefined'
   ? flatpickr('#expirationDate', {
@@ -457,6 +477,206 @@ docTypeSelect.addEventListener('change', (e) => {
     setModalExpirationDate('');
   } else {
     expirationDateContainer.classList.remove('hidden');
+  }
+});
+
+// ==========================================
+// LÓGICA DE CERTIFICADO GPS (ADMIN VS LECTOR)
+// ==========================================
+let toastTimer = null;
+
+function mostrarToast(mensaje, tipo = 'info') {
+  const toast = document.getElementById('saedocsToast');
+  if (!toast) return alert(mensaje);
+
+  const estilos = {
+    warning: 'bg-amber-50 border-amber-300 text-amber-900',
+    error: 'bg-rose-50 border-rose-300 text-rose-900',
+    success: 'bg-emerald-50 border-emerald-300 text-emerald-900',
+    info: 'bg-slate-900 border-slate-800 text-white'
+  };
+
+  const iconos = {
+    warning: '⚠️',
+    error: '❌',
+    success: '✅',
+    info: 'ℹ️'
+  };
+
+  toast.className = `fixed bottom-6 right-6 z-50 px-5 py-3.5 rounded-xl shadow-lg border font-semibold text-sm flex items-center gap-2.5 transition-all ${estilos[tipo] || estilos.info}`;
+  toast.innerHTML = `<span>${iconos[tipo] || ''}</span><span>${mensaje}</span>`;
+  toast.classList.remove('hidden');
+
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toast.classList.add('hidden');
+  }, 3500);
+}
+
+async function descargarArchivoGPS(plate, url, btnElement = null) {
+  const originalHtml = btnElement ? btnElement.innerHTML : null;
+  if (btnElement) {
+    btnElement.disabled = true;
+    btnElement.textContent = 'Descargando... ⏳';
+  }
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('No se pudo descargar el Certificado GPS.');
+    const blob = await response.blob();
+    const ext = url.split('.').pop().split(/[#?]/)[0] || 'pdf';
+    saveAs(blob, `Certificado_GPS_${plate}.${ext}`);
+  } catch (error) {
+    mostrarToast(error.message, 'error');
+  } finally {
+    if (btnElement && originalHtml !== null) {
+      btnElement.disabled = false;
+      btnElement.innerHTML = originalHtml;
+    }
+  }
+}
+
+function manejarBotonCertificadoGPS(plate, btnElement) {
+  const gpsInfo = window.vehiculosGps?.[plate];
+  if (!gpsInfo) return;
+
+  // Si es Admin, abrimos el menú para descargar, cargar o editar
+  if (currentUserRole === 'admin') {
+    abrirModalGPS(gpsInfo);
+    return;
+  }
+
+  // Si es Lector (o no admin): descarga directa o aviso si no está cargado
+  if (!gpsInfo.doc || !gpsInfo.doc.cloudinary_url) {
+    mostrarToast('Documento no cargado', 'warning');
+    return;
+  }
+
+  descargarArchivoGPS(plate, gpsInfo.doc.cloudinary_url, btnElement);
+}
+
+const gpsModal = document.getElementById('gpsModal');
+const closeGpsModalBtn = document.getElementById('closeGpsModalBtn');
+const gpsForm = document.getElementById('gpsForm');
+const gpsFeedback = document.getElementById('gpsFeedback');
+const gpsSubmitBtn = document.getElementById('gpsSubmitBtn');
+
+function abrirModalGPS(gpsInfo) {
+  if (!gpsModal) {
+    alert('Falta agregar el modal #gpsModal en index.html.');
+    return;
+  }
+
+  const { vehicleId, plate, doc } = gpsInfo;
+
+  document.getElementById('gpsModalTitle').textContent = `Certificado GPS - ${plate}`;
+  document.getElementById('gpsVehicleId').value = vehicleId;
+  document.getElementById('gpsDocId').value = doc?.doc_id || '';
+  gpsForm.reset();
+  gpsFeedback.classList.add('hidden');
+
+  const currentBox = document.getElementById('gpsCurrentBox');
+  const fileLabel = document.getElementById('gpsFileLabel');
+
+  if (doc && doc.cloudinary_url) {
+    const fechaSubida = doc.created_at
+      ? new Date(doc.created_at).toLocaleDateString('es-CL')
+      : '--';
+
+    currentBox.innerHTML = `
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs font-bold uppercase tracking-wide px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">Cargado</span>
+        <span class="text-xs text-slate-500">Subido: <strong class="text-slate-700">${fechaSubida}</strong></span>
+      </div>
+      <div class="flex items-center gap-2 mt-3">
+        <button type="button" onclick="descargarArchivoGPS('${plate}', '${doc.cloudinary_url}', this)" class="flex-1 bg-slate-900 text-white text-xs font-bold py-2 px-3 rounded-lg hover:bg-slate-800 transition-colors">
+          Descargar PDF
+        </button>
+        <a href="${doc.cloudinary_url}" target="_blank" class="px-3 py-2 text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
+          Ver →
+        </a>
+      </div>
+    `;
+
+    fileLabel.textContent = 'Editar / Reemplazar Certificado (PDF o Imagen)';
+    gpsSubmitBtn.textContent = 'Reemplazar Certificado';
+  } else {
+    currentBox.innerHTML = `
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold uppercase tracking-wide px-2 py-0.5 rounded bg-rose-100 text-rose-800">Sin registro</span>
+        <span class="text-xs text-slate-500">Documento no cargado</span>
+      </div>
+    `;
+
+    fileLabel.textContent = 'Cargar Certificado GPS (PDF o Imagen)';
+    gpsSubmitBtn.textContent = 'Subir Certificado GPS';
+  }
+
+  gpsModal.classList.remove('hidden');
+}
+
+closeGpsModalBtn?.addEventListener('click', () => {
+  gpsModal.classList.add('hidden');
+  gpsForm.reset();
+  gpsFeedback.classList.add('hidden');
+});
+
+gpsForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const file = document.getElementById('gpsFileInput').files[0];
+  if (!file) return;
+
+  const existingDocId = document.getElementById('gpsDocId').value;
+  const vehicleId = document.getElementById('gpsVehicleId').value;
+  const token = localStorage.getItem('saedocs_token');
+
+  gpsSubmitBtn.disabled = true;
+  gpsSubmitBtn.textContent = existingDocId ? 'Reemplazando... ⏳' : 'Subiendo... ⏳';
+  gpsFeedback.classList.add('hidden');
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    let url;
+    let method;
+
+    if (existingDocId) {
+      url = AppConfig.URL_DOC_UPDATE(existingDocId);
+      method = 'PUT';
+    } else {
+      const user = JSON.parse(localStorage.getItem('saedocs_user'));
+      formData.append('vehicle_id', vehicleId);
+      formData.append('document_type_id', '5');
+      formData.append('uploaded_by', user?.id || 1);
+      url = AppConfig.URL_DOCS_UPLOAD;
+      method = 'POST';
+    }
+
+    const response = await fetch(url, {
+      method,
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData
+    });
+
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Error al guardar el Certificado GPS.');
+
+    gpsFeedback.textContent = existingDocId
+      ? '¡Certificado GPS actualizado con éxito!'
+      : '¡Certificado GPS subido con éxito!';
+    gpsFeedback.className = 'text-sm font-bold text-emerald-600 text-center mt-3 block';
+
+    setTimeout(() => {
+      closeGpsModalBtn.click();
+      document.getElementById('searchForm').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    }, 900);
+  } catch (error) {
+    gpsFeedback.textContent = error.message;
+    gpsFeedback.className = 'text-sm font-bold text-rose-600 text-center mt-3 block';
+  } finally {
+    gpsSubmitBtn.disabled = false;
+    gpsSubmitBtn.textContent = existingDocId ? 'Reemplazar Certificado' : 'Subir Certificado GPS';
   }
 });
 

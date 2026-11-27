@@ -6,14 +6,16 @@ const DOC_PREFIX = {
   '1': 'SOAP',
   '2': 'Revision_Tecnica',
   '3': 'Permiso_Circulacion',
-  '4': 'Padron'
+  '4': 'Padron',
+  '5': 'Certificado_GPS'
 };
 
 const DOC_LABELS = {
   '1': 'SOAP',
   '2': 'Revisión Técnica',
   '3': 'Permiso de Circulación',
-  '4': 'Padrón'
+  '4': 'Padrón',
+  '5': 'Certificado GPS'
 };
 
 function normalizarIso(val) {
@@ -33,7 +35,7 @@ function formatearFechaCL(rawDate) {
 }
 
 // ==========================================
-// 1. SUBIR NUEVO DOCUMENTO
+// 1. SUBIR NUEVO DOCUMENTO (Crea subcarpeta por patente)
 // ==========================================
 const uploadDocument = async (req, res) => {
   const { vehicle_id, document_type_id, expiration_date, uploaded_by } = req.body;
@@ -50,14 +52,19 @@ const uploadDocument = async (req, res) => {
     }
 
     const plate = vehRes.rows[0].plate.trim().toUpperCase();
-    const docPrefix = DOC_PREFIX[String(document_type_id)] || 'Documento';
-    const docLabel = DOC_LABELS[String(document_type_id)] || 'Documento';
+    const docTypeStr = String(document_type_id);
+    const docPrefix = DOC_PREFIX[docTypeStr] || 'Documento';
+    const docLabel = DOC_LABELS[docTypeStr] || 'Documento';
+
+    const publicId = docTypeStr === '5'
+      ? `Certificado_GPS_${plate}_${Date.now()}`
+      : `${docPrefix}_${Date.now()}`;
 
     const uploadResult = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
         {
           folder: `saedocs/documentos/${plate}`,
-          public_id: `${docPrefix}_${Date.now()}`,
+          public_id: publicId,
           resource_type: 'auto'
         },
         (error, result) => {
@@ -74,10 +81,10 @@ const uploadDocument = async (req, res) => {
       `INSERT INTO vehicle_documents (vehicle_id, document_type_id, cloudinary_url, expiration_date, uploaded_by)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [vehicle_id, document_type_id, uploadResult.secure_url, expDateValue, uploaded_by || 1]
+      [vehicle_id, document_type_id, uploadResult.secure_url, expDateValue, uploaded_by || req.user?.id || 1]
     );
 
-    const detalleVenc = String(document_type_id) === '4'
+    const detalleVenc = ['4', '5'].includes(docTypeStr)
       ? 'Documento Permanente'
       : `Vence: ${formatearFechaCL(expDateValue)}`;
 
@@ -98,7 +105,7 @@ const uploadDocument = async (req, res) => {
 };
 
 // ==========================================
-// 2. EDITAR DOCUMENTO EXISTENTE
+// 2. EDITAR DOCUMENTO EXISTENTE (Sin crear historial)
 // ==========================================
 const updateDocument = async (req, res) => {
   const { id } = req.params;
@@ -123,18 +130,22 @@ const updateDocument = async (req, res) => {
     }
     const oldDoc = existing.rows[0];
     const plate = oldDoc.plate.trim().toUpperCase();
-    const docLabel = DOC_LABELS[String(oldDoc.document_type_id)] || 'Documento';
+    const docTypeStr = String(oldDoc.document_type_id);
+    const docLabel = DOC_LABELS[docTypeStr] || 'Documento';
 
     let newUrl = oldDoc.cloudinary_url;
 
     if (file) {
-      const docPrefix = DOC_PREFIX[String(oldDoc.document_type_id)] || 'Documento';
+      const docPrefix = DOC_PREFIX[docTypeStr] || 'Documento';
+      const publicId = docTypeStr === '5'
+        ? `Certificado_GPS_${plate}_${Date.now()}`
+        : `${docPrefix}_${Date.now()}`;
 
       const uploadResult = await new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
           {
             folder: `saedocs/documentos/${plate}`,
-            public_id: `${docPrefix}_${Date.now()}`,
+            public_id: publicId,
             resource_type: 'auto'
           },
           (error, result) => {
@@ -147,9 +158,12 @@ const updateDocument = async (req, res) => {
 
       newUrl = uploadResult.secure_url;
 
+      // Borra el archivo anterior en Cloudinary
       const match = oldDoc.cloudinary_url?.match(/\/upload\/(?:v\d+\/)?(.+)\.[a-zA-Z0-9]+$/);
       if (match && match[1]) {
-        cloudinary.uploader.destroy(match[1]).catch(() => {});
+        const oldPubId = decodeURIComponent(match[1]);
+        cloudinary.uploader.destroy(oldPubId, { resource_type: 'image', invalidate: true }).catch(() => {});
+        cloudinary.uploader.destroy(oldPubId, { resource_type: 'raw', invalidate: true }).catch(() => {});
       }
     }
 
@@ -168,8 +182,8 @@ const updateDocument = async (req, res) => {
 
     // Armamos el detalle exacto de lo que se editó
     const cambios = [];
-    const oldIso = oldDoc.expiration_date ? String(oldDoc.expiration_date).split('T')[0] : '';
-    const newIso = finalDate ? String(finalDate).split('T')[0] : '';
+    const oldIso = normalizarIso(oldDoc.expiration_date);
+    const newIso = normalizarIso(finalDate);
 
     if (file) cambios.push('reemplazó archivo adjunto');
     if (oldIso !== newIso) {
