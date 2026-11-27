@@ -1,4 +1,6 @@
 const db = require('../config/db');
+const cloudinary = require('../config/cloudinary');
+const { registrarAuditoria } = require('../utils/auditLogger');
 
 const getVehicleWithDocs = async (req, res) => {
   const { plate } = req.params;
@@ -34,13 +36,23 @@ const getAllVehicles = async (req, res) => {
 const addVehicle = async (req, res) => {
   const { plate, type, brand, branch } = req.body;
   try {
-    const { rows: existing } = await db.query('SELECT id FROM vehicles WHERE plate = $1', [plate.toUpperCase()]);
+    const plateClean = plate.trim().toUpperCase();
+    const { rows: existing } = await db.query('SELECT id FROM vehicles WHERE plate = $1', [plateClean]);
     if (existing.length > 0) return res.status(400).json({ error: 'La patente ya está registrada.' });
 
     const result = await db.query(
       'INSERT INTO vehicles (plate, type, brand, branch) VALUES ($1, $2, $3, $4) RETURNING *',
-      [plate.toUpperCase(), type, brand || 'Sin Marca', branch || 'Coquimbo']
+      [plateClean, type, brand || 'Sin Marca', branch || 'Coquimbo']
     );
+
+    await registrarAuditoria({
+      user: req.user,
+      action: 'AGREGO_VEHICULO',
+      entityType: 'VEHICULO',
+      plate: plateClean,
+      details: `Registró ${type} (${brand || 'Sin Marca'} • ${branch || 'Coquimbo'})`
+    });
+
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
     res.status(500).json({ error: 'Error al registrar vehículo' });
@@ -50,9 +62,64 @@ const addVehicle = async (req, res) => {
 const deleteVehicle = async (req, res) => {
   const { id } = req.params;
   try {
+    const vehRes = await db.query('SELECT plate, type, branch FROM vehicles WHERE id = $1', [id]);
+    const veh = vehRes.rows[0];
+
+    if (veh) {
+      const plate = veh.plate.trim().toUpperCase();
+      const folderPath = `saedocs/documentos/${plate}`;
+
+      // 1. Eliminar los archivos registrados en Neon por su public_id real
+      const docsRes = await db.query(
+        'SELECT cloudinary_url FROM vehicle_documents WHERE vehicle_id = $1',
+        [id]
+      );
+      for (const row of docsRes.rows) {
+        const match = row.cloudinary_url?.match(/\/upload\/(?:v\d+\/)?(.+)\.[a-zA-Z0-9]+$/);
+        if (match && match[1]) {
+          const pubId = decodeURIComponent(match[1]);
+          await cloudinary.uploader.destroy(pubId, { resource_type: 'image', invalidate: true }).catch(() => {});
+          await cloudinary.uploader.destroy(pubId, { resource_type: 'raw', invalidate: true }).catch(() => {});
+        }
+      }
+
+      // 2. Eliminar cualquier otro recurso en el asset_folder (Dynamic Folders) y borrar la carpeta
+      try {
+        if (typeof cloudinary.api.delete_resources_by_asset_folder === 'function') {
+          await cloudinary.api.delete_resources_by_asset_folder(folderPath).catch(() => {});
+        } else if (cloudinary.search) {
+          const searchRes = await cloudinary.search.expression(`asset_folder="${folderPath}"`).execute().catch(() => null);
+          if (searchRes?.resources?.length) {
+            for (const asset of searchRes.resources) {
+              await cloudinary.uploader.destroy(asset.public_id, { resource_type: asset.resource_type || 'image', invalidate: true }).catch(() => {});
+            }
+          }
+        }
+
+        await cloudinary.api.delete_resources_by_prefix(`${folderPath}/`, { resource_type: 'image' }).catch(() => {});
+        await cloudinary.api.delete_resources_by_prefix(`${folderPath}/`, { resource_type: 'raw' }).catch(() => {});
+        await cloudinary.api.delete_folder(folderPath);
+      } catch (cloudErr) {
+        console.warn(`Aviso limpiando carpeta Cloudinary (${folderPath}):`, cloudErr?.error?.message || cloudErr.message || cloudErr);
+      }
+    }
+
+    // 3. Eliminar el vehículo de Neon
     await db.query('DELETE FROM vehicles WHERE id = $1', [id]);
-    res.json({ success: true, message: 'Vehículo eliminado correctamente' });
+
+    if (veh) {
+      await registrarAuditoria({
+        user: req.user,
+        action: 'ELIMINO_VEHICULO',
+        entityType: 'VEHICULO',
+        plate: veh.plate,
+        details: `Eliminó ${veh.type} de sucursal ${veh.branch || 'Coquimbo'}`
+      });
+    }
+
+    res.json({ success: true, message: 'Vehículo y carpeta eliminados correctamente' });
   } catch (error) {
+    console.error('Error al eliminar vehículo:', error);
     res.status(500).json({ error: 'Error al eliminar vehículo' });
   }
 };
@@ -100,10 +167,15 @@ const getDashboardStats = async (req, res) => {
         if (docType === '4') return; // Padrón no vence
 
         if (docRecord.date) {
-          const [y, m, d] = String(docRecord.date).split('T')[0].split('-');
+          const iso = docRecord.date instanceof Date
+            ? docRecord.date.toISOString().split('T')[0]
+            : String(docRecord.date).split('T')[0];
+          const [y, m, d] = iso.split('-');
           const expDate = new Date(Number(y), Number(m) - 1, Number(d));
           if (expDate <= today) expired.push(docName);
           else if (expDate <= thirtyDaysFromNow) expiring.push(docName);
+        } else {
+          missing.push(docName);
         }
       });
 
@@ -120,4 +192,19 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
-module.exports = { getVehicleWithDocs, getAllVehicles, addVehicle, deleteVehicle, getDashboardStats };
+const getAuditLogs = async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT id, user_name, action, entity_type, plate, details, created_at
+       FROM audit_logs
+       ORDER BY created_at DESC
+       LIMIT 200`
+    );
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    console.error('Error obteniendo audit logs:', error);
+    res.status(500).json({ success: false, error: 'Error obteniendo el historial de cambios' });
+  }
+};
+
+module.exports = { getVehicleWithDocs, getAllVehicles, addVehicle, deleteVehicle, getDashboardStats, getAuditLogs };

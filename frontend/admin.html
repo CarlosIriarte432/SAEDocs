@@ -17,7 +17,7 @@
     } else {
       const user = JSON.parse(userStr);
       if (user.role !== 'admin') {
-        window.location.href = 'index.html'; // Expulsa a usuarios normales al dashboard
+        window.location.href = 'index.html';
       }
     }
   </script>
@@ -42,98 +42,352 @@
     </div>
   </header>
 
-  <main class="max-w-5xl mx-auto p-6 grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
-    
-    <!-- Columna Izquierda: Formulario para Agregar -->
-    <div class="md:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-fit">
-      <h2 class="text-lg font-bold text-slate-900 mb-4">Registrar Vehículo</h2>
-      
-      <form id="addVehicleForm" class="space-y-4">
-        <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Patente</label>
-          <input type="text" id="plate" required placeholder="Ej: CJBB63" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none uppercase">
-        </div>
-        
-        <!-- Nuevo Select: Solo Vehículo o Equipo -->
-        <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Clasificación</label>
-          <select id="type" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none">
-            <option value="Vehículo">Vehículo</option>
-            <option value="Equipo">Equipo</option>
-          </select>
-        </div>
+  <main class="max-w-6xl mx-auto p-6 mt-2">
 
-        <!-- Nuevo Select: Marcas de relleno -->
-        <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Marca</label>
-          <select id="brandInput" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none">
-            <option value="Mercedes-Benz">Mercedes-Benz</option>
-            <option value="Volvo">Volvo</option>
-            <option value="Scania">Scania</option>
-            <option value="Freightliner">Freightliner</option>
-            <option value="Ford">Ford</option>
-            <option value="Chevrolet">Chevrolet</option>
-            <option value="Caterpillar">Caterpillar (CAT)</option>
-            <option value="JCB">JCB</option>
-            <option value="Otra">Otra</option>
-          </select>
-        </div>
+    <!-- Barra de Pestañas (Tabs) -->
+    <div class="bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 inline-flex flex-wrap gap-1.5 mb-6">
+      <button
+        id="tab-btn-flota"
+        onclick="cambiarTabAdmin('flota')"
+        class="px-4 py-2 rounded-xl text-sm font-bold transition-all bg-slate-900 text-white shadow-sm flex items-center gap-2"
+      >
+        <span>🚛</span> Gestión de Flota
+      </button>
 
-        <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Sucursal Asignada</label>
-          <select id="branchInput" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none" required>
-            <option value="Coquimbo">Casa Matriz (Coquimbo)</option>
-            <option value="Alto Hospicio">Alto Hospicio</option>
-            <option value="Calama">Calama</option>
-            <option value="La Portada">La Portada</option>
-            <option value="La Negra">La Negra</option>
-            <option value="Copiapó">Copiapó</option>
-            <option value="Lampa">Lampa</option>
-          </select>
-        </div>
+      <button
+        id="tab-btn-auditoria"
+        onclick="cambiarTabAdmin('auditoria')"
+        class="px-4 py-2 rounded-xl text-sm font-bold transition-all text-slate-600 hover:bg-slate-100 flex items-center gap-2"
+      >
+        <span>📋</span> Historial de Cambios
+      </button>
 
-        <p id="formMsg" class="hidden text-sm text-center py-2 rounded-lg"></p>
-
-        <button type="submit" class="w-full bg-slate-900 text-white font-bold py-2.5 rounded-lg hover:bg-slate-800 transition-colors shadow-sm">
-          Añadir a la Flota
-        </button>
-      </form>
+      <button
+        id="tab-btn-usuarios"
+        onclick="cambiarTabAdmin('usuarios')"
+        class="px-4 py-2 rounded-xl text-sm font-bold transition-all text-slate-600 hover:bg-slate-100 flex items-center gap-2"
+      >
+        <span>👥</span> Usuarios
+      </button>
     </div>
 
-    <!-- Columna Derecha: Lista de Vehículos -->
-    <div class="md:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-      <div class="flex justify-between items-center mb-4">
-        <h2 class="text-lg font-bold text-slate-900">Inventario de Flota</h2>
-        <span id="totalVehicles" class="text-sm font-medium text-slate-500 bg-slate-100 px-3 py-1 rounded-full">0 vehículos</span>
+    <!-- ========================================== -->
+    <!-- PESTAÑA 1: GESTIÓN DE FLOTA                -->
+    <!-- ========================================== -->
+    <div id="tab-view-flota" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      
+      <!-- Columna Izquierda: Formulario para Agregar -->
+      <div class="md:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-fit">
+        <h2 class="text-lg font-bold text-slate-900 mb-4">Registrar Vehículo</h2>
+        
+        <form id="addVehicleForm" class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Patente</label>
+            <input type="text" id="plate" required placeholder="Ej: CJBB63" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none uppercase">
+          </div>
+          
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Clasificación</label>
+            <select id="type" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none">
+              <option value="Vehículo">Vehículo</option>
+              <option value="Equipo">Equipo</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Marca</label>
+            <select id="brandInput" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none">
+              <option value="Mercedes-Benz">Mercedes-Benz</option>
+              <option value="Volvo">Volvo</option>
+              <option value="Scania">Scania</option>
+              <option value="Freightliner">Freightliner</option>
+              <option value="Ford">Ford</option>
+              <option value="Chevrolet">Chevrolet</option>
+              <option value="Caterpillar">Caterpillar (CAT)</option>
+              <option value="JCB">JCB</option>
+              <option value="Otra">Otra</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Sucursal Asignada</label>
+            <select id="branchInput" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none" required>
+              <option value="Coquimbo">Casa Matriz (Coquimbo)</option>
+              <option value="Alto Hospicio">Alto Hospicio</option>
+              <option value="Calama">Calama</option>
+              <option value="La Portada">La Portada</option>
+              <option value="La Negra">La Negra</option>
+              <option value="Copiapó">Copiapó</option>
+              <option value="Lampa">Lampa</option>
+            </select>
+          </div>
+
+          <button type="submit" class="w-full bg-slate-900 text-white font-bold py-2.5 rounded-lg hover:bg-slate-800 transition-colors shadow-sm">
+            Añadir a la Flota
+          </button>
+        </form>
       </div>
 
-      <div class="overflow-x-auto">
+      <!-- Columna Derecha: Lista de Vehículos -->
+      <div class="md:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div class="flex items-center gap-3">
+            <h2 class="text-lg font-bold text-slate-900">Inventario de Flota</h2>
+            <span id="totalVehicles" class="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-full">0 vehículos</span>
+          </div>
+
+          <input
+            type="text"
+            id="fleetSearchInput"
+            oninput="filtrarVehiculos()"
+            placeholder="Buscar patente o sucursal..."
+            class="px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none w-full sm:w-56"
+          >
+        </div>
+
+        <div class="overflow-x-auto max-h-[470px] overflow-y-auto border border-slate-100 rounded-xl">
+          <table class="w-full text-left border-collapse">
+            <thead class="sticky top-0 bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
+              <tr>
+                <th class="px-4 py-3 font-semibold">Patente</th>
+                <th class="px-4 py-3 font-semibold">Tipo</th>
+                <th class="px-4 py-3 font-semibold">Sucursal</th>
+                <th class="px-4 py-3 font-semibold">Marca</th>
+                <th class="px-4 py-3 font-semibold text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="vehicleTableBody" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ========================================== -->
+    <!-- PESTAÑA 2: HISTORIAL DE CAMBIOS (AUDIT LOG) -->
+    <!-- ========================================== -->
+    <section id="tab-view-auditoria" class="hidden bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+        <div>
+          <h2 class="text-lg font-bold text-slate-900">Historial de Cambios (Auditoría)</h2>
+          <p class="text-xs text-slate-500">Registro automático de subidas, ediciones y movimientos de flota y usuarios (últimos 200 eventos)</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <input
+            type="text"
+            id="auditSearchInput"
+            oninput="filtrarAuditLogs()"
+            placeholder="Filtrar por patente o usuario..."
+            class="px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none"
+          >
+          <select
+            id="auditActionFilter"
+            onchange="filtrarAuditLogs()"
+            class="px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none bg-white"
+          >
+            <option value="ALL">Todas las acciones</option>
+            <option value="SUBIO_DOCUMENTO">Subidas de documento</option>
+            <option value="EDITO_DOCUMENTO">Ediciones de documento</option>
+            <option value="AGREGO_VEHICULO">Vehículos agregados</option>
+            <option value="ELIMINO_VEHICULO">Vehículos eliminados</option>
+            <option value="CREO_USUARIO">Usuarios creados</option>
+            <option value="EDITO_USUARIO">Usuarios editados</option>
+            <option value="ELIMINO_USUARIO">Usuarios eliminados</option>
+          </select>
+          <button
+            onclick="loadAuditLogs()"
+            class="px-3 py-1.5 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+            title="Actualizar historial"
+          >
+            ↻ Actualizar
+          </button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto max-h-[520px] overflow-y-auto border border-slate-100 rounded-xl">
         <table class="w-full text-left border-collapse">
-          <thead>
-            <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
+          <thead class="sticky top-0 bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
+            <tr>
+              <th class="px-4 py-3 font-semibold">Fecha y Hora</th>
+              <th class="px-4 py-3 font-semibold">Usuario</th>
+              <th class="px-4 py-3 font-semibold">Acción</th>
               <th class="px-4 py-3 font-semibold">Patente</th>
-              <th class="px-4 py-3 font-semibold">Tipo</th>
-              <th class="px-4 py-3 font-semibold">Sucursal</th>
-              <th class="px-4 py-3 font-semibold">Marca</th>
-              <th class="px-4 py-3 font-semibold text-right">Acciones</th>
+              <th class="px-4 py-3 font-semibold">Detalle del Cambio</th>
             </tr>
           </thead>
-          <tbody id="vehicleTableBody" class="divide-y divide-slate-100">
-            <!-- Las filas se inyectan aquí con JS -->
+          <tbody id="auditLogsBody" class="divide-y divide-slate-100 text-sm">
+            <tr>
+              <td colspan="5" class="px-4 py-6 text-center text-slate-400">Cargando historial...</td>
+            </tr>
           </tbody>
         </table>
       </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- PESTAÑA 3: GESTIÓN DE USUARIOS (CRUD)      -->
+    <!-- ========================================== -->
+    <div id="tab-view-usuarios" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- Columna Izquierda: Crear Usuario -->
+      <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-fit">
+        <h2 class="text-lg font-bold text-slate-900 mb-1">Crear Usuario</h2>
+        <p class="text-xs text-slate-500 mb-4">Asigna credenciales y nivel de acceso a la plataforma.</p>
+
+        <form id="createUserForm" class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Nombre Completo</label>
+            <input type="text" id="newUserName" required placeholder="Ej: Juan Pérez" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Correo Electrónico</label>
+            <input type="email" id="newUserEmail" required placeholder="jperez@sae.cl" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Contraseña Inicial</label>
+            <div class="relative">
+              <input type="password" id="newUserPassword" required minlength="6" placeholder="Mínimo 6 caracteres" class="w-full px-3 py-2 pr-10 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none">
+              <button type="button" onclick="togglePasswordVisibility('newUserPassword', this)" class="absolute inset-y-0 right-2.5 flex items-center text-xs font-semibold text-slate-400 hover:text-slate-700">
+                Ver
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Rol y Permisos</label>
+            <select id="newUserRole" onchange="actualizarDescripcionRol(this.value, 'newRoleHint')" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none bg-white">
+              <option value="user">User (Operador)</option>
+              <option value="lector">Lector (Solo consulta)</option>
+              <option value="admin">Admin (Control total)</option>
+            </select>
+            <p id="newRoleHint" class="text-[11px] text-slate-500 mt-1.5 bg-slate-50 p-2 rounded-lg border border-slate-100">
+              Puede consultar flota, descargar ZIP/Excel, subir documentos nuevos y editar existentes. Sin acceso al Panel Admin.
+            </p>
+          </div>
+
+          <button type="submit" id="createUserBtn" class="w-full bg-slate-900 text-white font-bold py-2.5 rounded-lg hover:bg-slate-800 transition-colors shadow-sm">
+            Crear Cuenta
+          </button>
+        </form>
+      </div>
+
+      <!-- Columna Derecha: Directorio Completo de Usuarios -->
+      <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div class="flex items-center gap-3">
+            <h2 class="text-lg font-bold text-slate-900">Usuarios Registrados</h2>
+            <span id="totalUsersBadge" class="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-full">0 usuarios</span>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              id="userSearchInput"
+              oninput="filtrarUsuarios()"
+              placeholder="Buscar nombre o correo..."
+              class="px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none w-full sm:w-48"
+            >
+            <select
+              id="userRoleFilter"
+              onchange="filtrarUsuarios()"
+              class="px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none bg-white"
+            >
+              <option value="ALL">Todos los roles</option>
+              <option value="admin">Admin</option>
+              <option value="user">User</option>
+              <option value="lector">Lector</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto max-h-[520px] overflow-y-auto border border-slate-100 rounded-xl">
+          <table class="w-full text-left border-collapse">
+            <thead class="sticky top-0 bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
+              <tr>
+                <th class="px-4 py-3 font-semibold">Usuario</th>
+                <th class="px-4 py-3 font-semibold">Rol</th>
+                <th class="px-4 py-3 font-semibold">Actividad en Sistema</th>
+                <th class="px-4 py-3 font-semibold">Último Movimiento</th>
+                <th class="px-4 py-3 font-semibold text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody" class="divide-y divide-slate-100 text-sm">
+              <tr>
+                <td colspan="5" class="px-4 py-6 text-center text-slate-400">Cargando usuarios...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
+
   </main>
 
-  <!-- Modal Confirmar Eliminación -->
+  <!-- Modal Editar Usuario -->
+  <div id="editUserModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold text-slate-900">Editar Usuario</h3>
+        <button onclick="closeEditUserModal()" class="text-slate-400 hover:text-slate-700 font-bold text-lg">✕</button>
+      </div>
+
+      <form id="editUserForm" class="space-y-4">
+        <input type="hidden" id="editUserId">
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Nombre Completo</label>
+          <input type="text" id="editUserName" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Correo Electrónico</label>
+          <input type="email" id="editUserEmail" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Rol</label>
+          <select id="editUserRole" onchange="actualizarDescripcionRol(this.value, 'editRoleHint')" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none bg-white">
+            <option value="user">User (Operador)</option>
+            <option value="lector">Lector (Solo consulta)</option>
+            <option value="admin">Admin (Control total)</option>
+          </select>
+          <p id="editRoleHint" class="text-[11px] text-slate-500 mt-1.5 bg-slate-50 p-2 rounded-lg border border-slate-100"></p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Nueva Contraseña <span class="normal-case font-normal text-slate-400">(opcional)</span></label>
+          <div class="relative">
+            <input type="password" id="editUserPassword" minlength="6" placeholder="Dejar vacío para mantener la actual" class="w-full px-3 py-2 pr-10 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-900 outline-none">
+            <button type="button" onclick="togglePasswordVisibility('editUserPassword', this)" class="absolute inset-y-0 right-2.5 flex items-center text-xs font-semibold text-slate-400 hover:text-slate-700">
+              Ver
+            </button>
+          </div>
+        </div>
+
+        <div class="flex gap-3 pt-2">
+          <button type="button" onclick="closeEditUserModal()" class="w-full py-2.5 bg-slate-100 text-slate-700 rounded-xl font-semibold hover:bg-slate-200 transition-colors">
+            Cancelar
+          </button>
+          <button type="submit" id="saveUserEditBtn" class="w-full py-2.5 bg-slate-900 text-white rounded-xl font-semibold hover:bg-slate-800 transition-colors shadow-sm">
+            Guardar Cambios
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Confirmar Eliminación (Vehículo o Usuario) -->
   <div id="deleteModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-opacity">
     <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl text-center transform transition-all">
       <div class="mx-auto flex items-center justify-center h-14 w-14 rounded-full bg-rose-100 mb-4">
         <svg class="h-7 w-7 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
       </div>
-      <h3 class="text-xl font-bold text-slate-900 mb-2">¿Eliminar Vehículo?</h3>
-      <p class="text-sm text-slate-500 mb-6">Estás a punto de eliminar la patente <span id="deleteModalPlate" class="font-bold text-slate-900 text-base uppercase"></span>. Esta acción no se puede deshacer y desvinculará sus documentos.</p>
+      <h3 id="deleteModalTitle" class="text-xl font-bold text-slate-900 mb-2">¿Eliminar Vehículo?</h3>
+      <p id="deleteModalText" class="text-sm text-slate-500 mb-6"></p>
       <div class="flex gap-3 justify-center">
         <button onclick="closeDeleteModal()" class="px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-semibold hover:bg-slate-200 transition-colors w-full">Cancelar</button>
         <button id="confirmDeleteBtn" class="px-4 py-2.5 bg-rose-600 text-white rounded-xl font-semibold hover:bg-rose-700 transition-colors w-full shadow-sm">Sí, eliminar</button>
@@ -144,9 +398,7 @@
   <!-- Modal Éxito / Notificación -->
   <div id="notificationModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-opacity">
     <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl text-center transform transition-all">
-      <div id="notifIconContainer" class="mx-auto flex items-center justify-center h-14 w-14 rounded-full mb-4">
-        <!-- Icono inyectado dinámicamente -->
-      </div>
+      <div id="notifIconContainer" class="mx-auto flex items-center justify-center h-14 w-14 rounded-full mb-4"></div>
       <h3 id="notifTitle" class="text-xl font-bold text-slate-900 mb-2">--</h3>
       <p id="notifMessage" class="text-sm text-slate-500 mb-6">--</p>
       <button onclick="closeNotificationModal()" class="w-full px-4 py-2.5 bg-slate-900 text-white rounded-xl font-semibold hover:bg-slate-800 transition-colors shadow-sm">Entendido</button>
@@ -154,20 +406,26 @@
   </div>
 
   <script src="./js/config.js"></script>
+  
   <script>
-  const API_URL = AppConfig.URL_ADMIN;
+    const API_URL = AppConfig.URL_ADMIN;
     const authHeaders = {
       'Authorization': `Bearer ${localStorage.getItem('saedocs_token')}`,
       'Content-Type': 'application/json'
     };
 
-    let vehicleToDeleteId = null; // Guarda el ID del vehículo a borrar
+    const currentLoggedUser = JSON.parse(localStorage.getItem('saedocs_user') || '{}');
+
+    let deleteTarget = null; // { type: 'vehicle' | 'user', id: number }
+    let allVehicles = [];
+    let allUsers = [];
 
     // Inicializar
     document.addEventListener('DOMContentLoaded', () => {
-      const user = JSON.parse(localStorage.getItem('saedocs_user'));
-      document.getElementById('adminName').textContent = user.name;
+      document.getElementById('adminName').textContent = currentLoggedUser.name || 'Admin';
       loadVehicles();
+      loadAuditLogs();
+      loadUsers();
     });
 
     function cerrarSesion() {
@@ -176,25 +434,78 @@
       window.location.href = 'login.html';
     }
 
-    // Cargar vehículos
+    function togglePasswordVisibility(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      const isPass = input.type === 'password';
+      input.type = isPass ? 'text' : 'password';
+      btn.textContent = isPass ? 'Ocultar' : 'Ver';
+    }
+
+    // --- NAVEGACIÓN ENTRE PESTAÑAS DEL PANEL ADMIN ---
+    function cambiarTabAdmin(tabDestino) {
+      const tabs = ['flota', 'auditoria', 'usuarios'];
+
+      tabs.forEach(t => {
+        const view = document.getElementById(`tab-view-${t}`);
+        const btn = document.getElementById(`tab-btn-${t}`);
+
+        if (t === tabDestino) {
+          view.classList.remove('hidden');
+          btn.classList.add('bg-slate-900', 'text-white', 'shadow-sm');
+          btn.classList.remove('text-slate-600', 'hover:bg-slate-100');
+        } else {
+          view.classList.add('hidden');
+          btn.classList.remove('bg-slate-900', 'text-white', 'shadow-sm');
+          btn.classList.add('text-slate-600', 'hover:bg-slate-100');
+        }
+      });
+
+      if (tabDestino === 'auditoria') loadAuditLogs();
+      if (tabDestino === 'usuarios') loadUsers();
+    }
+
+    // ==========================================
+    // 1. GESTIÓN DE VEHÍCULOS
+    // ==========================================
     async function loadVehicles() {
       try {
         const response = await fetch(API_URL, { headers: authHeaders });
         const result = await response.json();
-        
         if (result.success) {
-          renderTable(result.data);
-          document.getElementById('totalVehicles').textContent = `${result.data.length} vehículos`;
+          allVehicles = result.data;
+          filtrarVehiculos();
         }
       } catch (error) {
         console.error('Error cargando vehículos:', error);
       }
     }
 
-    // Renderizar la tabla
+    function filtrarVehiculos() {
+      const term = (document.getElementById('fleetSearchInput')?.value || '').trim().toLowerCase();
+      const filtrados = !term
+        ? allVehicles
+        : allVehicles.filter(v =>
+            (v.plate && v.plate.toLowerCase().includes(term)) ||
+            (v.branch && v.branch.toLowerCase().includes(term)) ||
+            (v.brand && v.brand.toLowerCase().includes(term))
+          );
+
+      document.getElementById('totalVehicles').textContent = term
+        ? `${filtrados.length} de ${allVehicles.length}`
+        : `${allVehicles.length} vehículos`;
+
+      renderTable(filtrados);
+    }
+
     function renderTable(vehicles) {
       const tbody = document.getElementById('vehicleTableBody');
       tbody.innerHTML = '';
+
+      if (vehicles.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-sm text-slate-400">No se encontraron vehículos.</td></tr>`;
+        return;
+      }
       
       vehicles.forEach(v => {
         const tr = document.createElement('tr');
@@ -212,7 +523,312 @@
       });
     }
 
-    // --- LÓGICA DE MODALES DE NOTIFICACIÓN ---
+    document.getElementById('addVehicleForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = {
+        plate: document.getElementById('plate').value,
+        type: document.getElementById('type').value,
+        brand: document.getElementById('brandInput').value, 
+        branch: document.getElementById('branchInput').value
+      };
+
+      try {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: authHeaders,
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+
+        if (response.ok) {
+          document.getElementById('addVehicleForm').reset();
+          showNotification('Flota Actualizada', `La patente ${payload.plate.toUpperCase()} fue registrada con éxito.`, 'success');
+          loadVehicles();
+          loadAuditLogs();
+        } else {
+          throw new Error(result.error);
+        }
+      } catch (error) {
+        showNotification('Error de Registro', error.message, 'error');
+      }
+    });
+
+    function deleteVehicle(id, plate) {
+      deleteTarget = { type: 'vehicle', id };
+      document.getElementById('deleteModalTitle').textContent = '¿Eliminar Vehículo?';
+      document.getElementById('deleteModalText').innerHTML = `Estás a punto de eliminar la patente <span class="font-bold text-slate-900 uppercase">${plate}</span>. Se borrarán sus registros y su carpeta en la nube.`;
+      document.getElementById('deleteModal').classList.remove('hidden');
+    }
+
+    // ==========================================
+    // 2. GESTIÓN DE USUARIOS (CRUD COMPLETO)
+    // ==========================================
+    const ROLE_DESCRIPTIONS = {
+      admin: 'Acceso total: gestiona flota, usuarios, historial de auditoría y documentos.',
+      user: 'Puede consultar flota, descargar ZIP/Excel, subir documentos nuevos y editar existentes. Sin acceso al Panel Admin.',
+      lector: 'Solo lectura: puede buscar patentes, ver estadísticas, descargar ZIP y exportar Excel. No puede subir ni editar.'
+    };
+
+    const ROLE_BADGES = {
+      admin: { label: 'Admin', cls: 'bg-slate-900 text-white' },
+      user: { label: 'User', cls: 'bg-blue-100 text-blue-800' },
+      lector: { label: 'Lector', cls: 'bg-slate-200 text-slate-700' }
+    };
+
+    function actualizarDescripcionRol(role, targetId) {
+      const el = document.getElementById(targetId);
+      if (el) el.textContent = ROLE_DESCRIPTIONS[role] || '';
+    }
+
+    async function loadUsers() {
+      try {
+        const res = await fetch(AppConfig.URL_ADMIN_USERS, { headers: authHeaders });
+        const result = await res.json();
+        if (result.success) {
+          allUsers = result.data;
+          filtrarUsuarios();
+        }
+      } catch (error) {
+        console.error('Error cargando usuarios:', error);
+      }
+    }
+
+    function filtrarUsuarios() {
+      const term = (document.getElementById('userSearchInput')?.value || '').trim().toLowerCase();
+      const roleFilter = document.getElementById('userRoleFilter')?.value || 'ALL';
+
+      const filtrados = allUsers.filter(u => {
+        const matchRole = roleFilter === 'ALL' || u.role === roleFilter;
+        const matchText = !term ||
+          (u.name && u.name.toLowerCase().includes(term)) ||
+          (u.email && u.email.toLowerCase().includes(term));
+        return matchRole && matchText;
+      });
+
+      document.getElementById('totalUsersBadge').textContent = (term || roleFilter !== 'ALL')
+        ? `${filtrados.length} de ${allUsers.length}`
+        : `${allUsers.length} usuarios`;
+
+      renderUsersTable(filtrados);
+    }
+
+    function renderUsersTable(users) {
+      const tbody = document.getElementById('usersTableBody');
+      if (!tbody) return;
+
+      if (users.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-slate-400">No se encontraron usuarios.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = users.map(u => {
+        const badge = ROLE_BADGES[u.role] || { label: u.role, cls: 'bg-slate-100 text-slate-700' };
+        const isSelf = Number(u.id) === Number(currentLoggedUser.id);
+        const createdText = u.created_at
+          ? `Alta: ${new Date(u.created_at).toLocaleDateString('es-CL')}`
+          : `ID #${u.id}`;
+        const lastActText = u.last_activity
+          ? new Date(u.last_activity).toLocaleString('es-CL', {
+              day: '2-digit', month: '2-digit', year: 'numeric',
+              hour: '2-digit', minute: '2-digit'
+            })
+          : 'Sin actividad aún';
+
+        return `
+          <tr class="hover:bg-slate-50 transition-colors">
+            <td class="px-4 py-3">
+              <div class="font-bold text-slate-900 flex items-center gap-1.5">
+                ${u.name}
+                ${isSelf ? '<span class="text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">Tú</span>' : ''}
+              </div>
+              <div class="text-xs text-slate-500">${u.email}</div>
+              <div class="text-[11px] text-slate-400 mt-0.5">${createdText}</div>
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <span class="text-[11px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wide ${badge.cls}">
+                ${badge.label}
+              </span>
+            </td>
+            <td class="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">
+              <div><span class="font-bold text-slate-800">${u.total_docs ?? 0}</span> docs subidos</div>
+              <div class="text-slate-400"><span class="font-semibold text-slate-600">${u.total_actions ?? 0}</span> acciones en bitácora</div>
+            </td>
+            <td class="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
+              ${lastActText}
+            </td>
+            <td class="px-4 py-3 text-right whitespace-nowrap space-x-1">
+              <button onclick="openEditUserModal(${u.id})" class="text-blue-600 hover:text-blue-800 font-semibold text-xs px-2.5 py-1.5 rounded-lg hover:bg-blue-50 transition-colors">
+                Editar
+              </button>
+              ${!isSelf
+                ? `<button onclick="promptDeleteUser(${u.id})" class="text-rose-600 hover:text-rose-800 font-semibold text-xs px-2.5 py-1.5 rounded-lg hover:bg-rose-50 transition-colors">
+                     Eliminar
+                   </button>`
+                : ''
+              }
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Crear usuario
+    document.getElementById('createUserForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('createUserBtn');
+      btn.disabled = true;
+      btn.textContent = 'Creando...';
+
+      const payload = {
+        name: document.getElementById('newUserName').value,
+        email: document.getElementById('newUserEmail').value,
+        password: document.getElementById('newUserPassword').value,
+        role: document.getElementById('newUserRole').value
+      };
+
+      try {
+        const res = await fetch(AppConfig.URL_ADMIN_USERS, {
+          method: 'POST',
+          headers: authHeaders,
+          body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+
+        if (!res.ok) throw new Error(result.error || 'No se pudo crear el usuario.');
+
+        document.getElementById('createUserForm').reset();
+        actualizarDescripcionRol('user', 'newRoleHint');
+        showNotification('Usuario Creado', `La cuenta para ${result.data.name} ya está activa.`, 'success');
+        loadUsers();
+        loadAuditLogs();
+      } catch (error) {
+        showNotification('Error al Crear Usuario', error.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Crear Cuenta';
+      }
+    });
+
+    // Abrir modal editar usuario
+    function openEditUserModal(userId) {
+      const user = allUsers.find(u => Number(u.id) === Number(userId));
+      if (!user) return;
+
+      document.getElementById('editUserId').value = user.id;
+      document.getElementById('editUserName').value = user.name;
+      document.getElementById('editUserEmail').value = user.email;
+      document.getElementById('editUserRole').value = user.role;
+      document.getElementById('editUserPassword').value = '';
+
+      // Evita degradar el propio rol
+      const isSelf = Number(user.id) === Number(currentLoggedUser.id);
+      document.getElementById('editUserRole').disabled = isSelf;
+      actualizarDescripcionRol(user.role, 'editRoleHint');
+
+      document.getElementById('editUserModal').classList.remove('hidden');
+    }
+
+    function closeEditUserModal() {
+      document.getElementById('editUserModal').classList.add('hidden');
+      document.getElementById('editUserForm').reset();
+    }
+
+    document.getElementById('editUserForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('editUserId').value;
+      const btn = document.getElementById('saveUserEditBtn');
+      btn.disabled = true;
+      btn.textContent = 'Guardando...';
+
+      const payload = {
+        name: document.getElementById('editUserName').value,
+        email: document.getElementById('editUserEmail').value,
+        role: document.getElementById('editUserRole').value,
+        password: document.getElementById('editUserPassword').value
+      };
+
+      try {
+        const res = await fetch(AppConfig.URL_ADMIN_USER_ID(id), {
+          method: 'PUT',
+          headers: authHeaders,
+          body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+
+        if (!res.ok) throw new Error(result.error || 'No se pudo actualizar el usuario.');
+
+        // Si el admin editó su propio nombre, lo actualizamos en header y localStorage
+        if (Number(id) === Number(currentLoggedUser.id)) {
+          currentLoggedUser.name = result.data.name;
+          localStorage.setItem('saedocs_user', JSON.stringify(currentLoggedUser));
+          document.getElementById('adminName').textContent = result.data.name;
+        }
+
+        closeEditUserModal();
+        showNotification('Usuario Actualizado', `Los datos de ${result.data.name} fueron guardados.`, 'success');
+        loadUsers();
+        loadAuditLogs();
+      } catch (error) {
+        showNotification('Error al Actualizar', error.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Guardar Cambios';
+      }
+    });
+
+    function promptDeleteUser(userId) {
+      const user = allUsers.find(u => Number(u.id) === Number(userId));
+      if (!user) return;
+
+      deleteTarget = { type: 'user', id: user.id };
+      document.getElementById('deleteModalTitle').textContent = '¿Eliminar Usuario?';
+      document.getElementById('deleteModalText').innerHTML = `Estás a punto de eliminar la cuenta de <span class="font-bold text-slate-900">${user.name}</span> (${user.email}). Esta persona perderá acceso inmediato al sistema.`;
+      document.getElementById('deleteModal').classList.remove('hidden');
+    }
+
+    // ==========================================
+    // 3. MODALES COMPARTIDOS (ELIMINAR Y NOTIFICAR)
+    // ==========================================
+    function closeDeleteModal() {
+      deleteTarget = null;
+      document.getElementById('deleteModal').classList.add('hidden');
+    }
+
+    document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+      if (!deleteTarget) return;
+
+      const endpoint = deleteTarget.type === 'user'
+        ? AppConfig.URL_ADMIN_USER_ID(deleteTarget.id)
+        : `${API_URL}/${deleteTarget.id}`;
+
+      const targetType = deleteTarget.type;
+
+      try {
+        const response = await fetch(endpoint, {
+          method: 'DELETE',
+          headers: authHeaders
+        });
+        const result = await response.json().catch(() => ({}));
+
+        if (response.ok) {
+          closeDeleteModal();
+          if (targetType === 'user') {
+            showNotification('Usuario Eliminado', 'La cuenta fue eliminada del sistema.', 'success');
+            loadUsers();
+          } else {
+            showNotification('Vehículo Eliminado', 'El registro ha sido borrado del sistema.', 'success');
+            loadVehicles();
+          }
+          loadAuditLogs();
+        } else {
+          throw new Error(result.error || 'Error al procesar la solicitud.');
+        }
+      } catch (error) {
+        closeDeleteModal();
+        showNotification('Error', error.message, 'error');
+      }
+    });
+
     function showNotification(title, message, type) {
       document.getElementById('notifTitle').textContent = title;
       document.getElementById('notifMessage').textContent = message;
@@ -233,71 +849,79 @@
       document.getElementById('notificationModal').classList.add('hidden');
     }
 
-    // --- LÓGICA DE AGREGAR VEHÍCULO ---
-    document.getElementById('addVehicleForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      const payload = {
-        plate: document.getElementById('plate').value,
-        type: document.getElementById('type').value,
-        brand: document.getElementById('brandInput').value, 
-        branch: document.getElementById('branchInput').value
-      };
+    // ==========================================
+    // 4. HISTORIAL DE CAMBIOS (AUDIT LOG)
+    // ==========================================
+    let allAuditLogs = [];
 
+    const AUDIT_BADGES = {
+      'SUBIO_DOCUMENTO': { label: 'Subió documento', cls: 'bg-emerald-100 text-emerald-800' },
+      'EDITO_DOCUMENTO': { label: 'Editó documento', cls: 'bg-amber-100 text-amber-800' },
+      'AGREGO_VEHICULO': { label: 'Agregó vehículo', cls: 'bg-blue-100 text-blue-800' },
+      'ELIMINO_VEHICULO': { label: 'Eliminó vehículo', cls: 'bg-rose-100 text-rose-800' },
+      'CREO_USUARIO': { label: 'Creó usuario', cls: 'bg-indigo-100 text-indigo-800' },
+      'EDITO_USUARIO': { label: 'Editó usuario', cls: 'bg-purple-100 text-purple-800' },
+      'ELIMINO_USUARIO': { label: 'Eliminó usuario', cls: 'bg-rose-100 text-rose-800' }
+    };
+
+    async function loadAuditLogs() {
       try {
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          headers: authHeaders,
-          body: JSON.stringify(payload)
-        });
-        
-        const result = await response.json();
-
-        if (response.ok) {
-          document.getElementById('addVehicleForm').reset();
-          showNotification('Flota Actualizada', `La patente ${payload.plate.toUpperCase()} fue registrada con éxito.`, 'success');
-          loadVehicles(); // Recargar la tabla
-        } else {
-          throw new Error(result.error);
+        const res = await fetch(AppConfig.URL_AUDIT_LOGS, { headers: authHeaders });
+        const result = await res.json();
+        if (result.success) {
+          allAuditLogs = result.data;
+          filtrarAuditLogs();
         }
       } catch (error) {
-        showNotification('Error de Registro', error.message, 'error');
+        console.error('Error cargando audit logs:', error);
       }
-    });
-
-    // --- LÓGICA DE ELIMINAR VEHÍCULO ---
-    function deleteVehicle(id, plate) {
-      vehicleToDeleteId = id; // Guardamos el ID en memoria
-      document.getElementById('deleteModalPlate').textContent = plate;
-      document.getElementById('deleteModal').classList.remove('hidden');
     }
 
-    function closeDeleteModal() {
-      vehicleToDeleteId = null;
-      document.getElementById('deleteModal').classList.add('hidden');
+    function filtrarAuditLogs() {
+      const term = (document.getElementById('auditSearchInput')?.value || '').trim().toLowerCase();
+      const actionFilter = document.getElementById('auditActionFilter')?.value || 'ALL';
+
+      const filtrados = allAuditLogs.filter(log => {
+        const matchAction = actionFilter === 'ALL' || log.action === actionFilter;
+        const matchText = !term ||
+          (log.plate && log.plate.toLowerCase().includes(term)) ||
+          (log.user_name && log.user_name.toLowerCase().includes(term)) ||
+          (log.details && log.details.toLowerCase().includes(term));
+        return matchAction && matchText;
+      });
+
+      renderAuditLogs(filtrados);
     }
 
-    document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
-      if (!vehicleToDeleteId) return;
-      
-      try {
-        const response = await fetch(`${API_URL}/${vehicleToDeleteId}`, {
-          method: 'DELETE',
-          headers: authHeaders
+    function renderAuditLogs(logs) {
+      const tbody = document.getElementById('auditLogsBody');
+      if (!tbody) return;
+
+      if (logs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-slate-400">Sin movimientos registrados.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = logs.map(log => {
+        const badge = AUDIT_BADGES[log.action] || { label: log.action, cls: 'bg-slate-100 text-slate-700' };
+        const fecha = new Date(log.created_at).toLocaleString('es-CL', {
+          day: '2-digit', month: '2-digit', year: 'numeric',
+          hour: '2-digit', minute: '2-digit'
         });
-        
-        if (response.ok) {
-          closeDeleteModal();
-          showNotification('Vehículo Eliminado', 'El registro ha sido borrado del sistema.', 'success');
-          loadVehicles();
-        } else {
-          throw new Error('Error al procesar la solicitud.');
-        }
-      } catch (error) {
-        closeDeleteModal();
-        showNotification('Error', 'Hubo un problema al intentar eliminar el vehículo.', 'error');
-      }
-    });
+
+        return `
+          <tr class="hover:bg-slate-50 transition-colors">
+            <td class="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">${fecha}</td>
+            <td class="px-4 py-3 font-semibold text-slate-800 whitespace-nowrap">${log.user_name}</td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <span class="text-[11px] font-bold px-2 py-0.5 rounded-md ${badge.cls}">${badge.label}</span>
+            </td>
+            <td class="px-4 py-3 font-bold text-slate-700 whitespace-nowrap">${log.plate || '—'}</td>
+            <td class="px-4 py-3 text-slate-600">${log.details}</td>
+          </tr>
+        `;
+      }).join('');
+    }
   </script>
 </body>
 </html>

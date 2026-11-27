@@ -11,9 +11,11 @@ const vehicleRoutes = require('./routes/vehicleRoutes');
 const docRoutes = require('./routes/docRoutes');
 const { login } = require('./controllers/authController');
 const { verifyToken, requireAdmin } = require('./middlewares/authMiddleware');
-const { getVehicleWithDocs, getAllVehicles, addVehicle, deleteVehicle, getDashboardStats } = require('./controllers/vehicleController');
+const { getVehicleWithDocs, getAllVehicles, addVehicle, deleteVehicle, getDashboardStats, getAuditLogs } = require('./controllers/vehicleController');
 const app = express();
 const PORT = process.env.PORT || 3000;
+const { getAllUsers, createUser, updateUser, deleteUser } = require('./controllers/userController');
+
 
 // Middlewares base
 app.use(cors({
@@ -44,6 +46,14 @@ app.post('/api/auth/login', login);
 app.get('/api/admin/vehicles', verifyToken, requireAdmin, getAllVehicles);
 app.post('/api/admin/vehicles', verifyToken, requireAdmin, addVehicle);
 app.delete('/api/admin/vehicles/:id', verifyToken, requireAdmin, deleteVehicle);
+app.get('/api/admin/audit-logs', verifyToken, requireAdmin, getAuditLogs);
+
+
+// Rutas de Administración de Usuarios (Requieren Token + Ser Admin)
+app.get('/api/admin/users', verifyToken, requireAdmin, getAllUsers);
+app.post('/api/admin/users', verifyToken, requireAdmin, createUser);
+app.put('/api/admin/users/:id', verifyToken, requireAdmin, updateUser);
+app.delete('/api/admin/users/:id', verifyToken, requireAdmin, deleteUser);
 
 // 3. Endpoint de salud (opcional, para saber que la API pura responde)
 app.get('/api', (req, res) => {
